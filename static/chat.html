@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI 语音分析助手 · Chat</title>
+<style>
+:root, [data-theme="light"] {
+  --bg: #ffffff; --bg-soft: #f7f6f3; --bg-hover: #efeeec;
+  --border: #e9e9e7; --text: #37352f; --text-soft: #787774; --text-faint: #9b9a97;
+  --accent: #2383e2; --accent-soft: #e7f3fb;
+  --shadow: 0 4px 12px rgba(15,15,15,0.08); --radius: 8px;
+  --msg-user: #e7f3fb; --msg-ai: var(--bg-soft);
+}
+[data-theme="dark"] {
+  --bg: #191919; --bg-soft: #202020; --bg-hover: #2a2a2a;
+  --border: #333; --text: #e8e8e6; --text-soft: #9b9a97; --text-faint: #6b6b6b;
+  --accent: #529CCA; --accent-soft: #1a3a52;
+  --shadow: 0 4px 12px rgba(0,0,0,0.4);
+  --msg-user: #1a3a52; --msg-ai: #252525;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; transition: background 0.3s; }
+.app { height: 100vh; display: flex; flex-direction: column; max-width: 800px; margin: 0 auto; }
+
+/* Header */
+header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+.brand { font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.spacer { flex: 1; }
+.back-link { font-size: 13px; color: var(--accent); text-decoration: none; padding: 4px 10px; border-radius: 4px; transition: background 0.12s; }
+.back-link:hover { background: var(--accent-soft); }
+.theme-btn { width: 30px; height: 30px; border: 1px solid var(--border); background: var(--bg-soft); border-radius: 6px; cursor: pointer; font-size: 14px; display: grid; place-items: center; }
+.theme-btn:hover { background: var(--bg-hover); }
+
+/* Messages */
+.messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.messages::-webkit-scrollbar { width: 6px; }
+.messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+.msg { max-width: 85%; padding: 12px 16px; border-radius: var(--radius); font-size: 14px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+.msg-user { align-self: flex-end; background: var(--msg-user); color: var(--text); border-bottom-right-radius: 2px; }
+.msg-ai { align-self: flex-start; background: var(--msg-ai); color: var(--text); border-bottom-left-radius: 2px; }
+.msg-ai .thinking { color: var(--text-faint); font-style: italic; }
+.msg-system { align-self: center; font-size: 12px; color: var(--text-faint); background: transparent; padding: 4px 12px; }
+
+/* Welcome */
+.welcome { text-align: center; padding: 60px 20px; color: var(--text-faint); }
+.welcome h2 { font-size: 20px; color: var(--text); margin-bottom: 8px; }
+.welcome p { font-size: 13px; max-width: 400px; margin: 0 auto 20px; }
+.suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 500px; margin: 0 auto; }
+.suggestion { padding: 8px 14px; font-size: 12px; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 16px; cursor: pointer; color: var(--text-soft); transition: all 0.12s; }
+.suggestion:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
+/* Input area */
+.input-area { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: flex-end; }
+.input-wrap { flex: 1; position: relative; }
+.input-wrap textarea { width: 100%; min-height: 42px; max-height: 160px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-soft); color: var(--text); font-size: 14px; font-family: inherit; line-height: 1.5; resize: none; outline: none; transition: border-color 0.15s; }
+.input-wrap textarea:focus { border-color: var(--accent); }
+.input-wrap textarea::placeholder { color: var(--text-faint); }
+.send-btn { width: 42px; height: 42px; border: none; background: var(--accent); color: #fff; border-radius: var(--radius); cursor: pointer; display: grid; place-items: center; transition: opacity 0.12s; flex-shrink: 0; }
+.send-btn:hover { opacity: 0.85; }
+.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.send-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+/* Context indicator */
+.context-bar { padding: 6px 20px; background: var(--accent-soft); color: var(--accent); font-size: 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+.context-bar .close-ctx { cursor: pointer; font-size: 14px; margin-left: auto; }
+.context-bar .close-ctx:hover { opacity: 0.6; }
+
+/* File upload */
+.upload-btn { width: 42px; height: 42px; border: 1px solid var(--border); background: var(--bg-soft); border-radius: var(--radius); cursor: pointer; display: grid; place-items: center; transition: all 0.12s; flex-shrink: 0; color: var(--text-soft); }
+.upload-btn:hover { background: var(--bg-hover); color: var(--accent); border-color: var(--accent); }
+.upload-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+.file-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 8px; }
+.file-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; font-size: 11px; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 12px; color: var(--text-soft); }
+.file-chip .chip-del { cursor: pointer; font-size: 13px; color: var(--text-faint); margin-left: 2px; }
+.file-chip .chip-del:hover { color: var(--text); }
+.upload-progress { font-size: 11px; color: var(--accent); padding: 4px 20px; display: none; }
+.upload-progress.show { display: block; }
+
+/* Recording selector in the input row (optional: load a saved recording as context) */
+.input-select { height: 42px; max-width: 140px; padding: 0 8px; font-size: 12px; border: 1px solid var(--border); background: var(--bg-soft); color: var(--text); border-radius: var(--radius); cursor: pointer; flex-shrink: 0; }
+.input-select:hover { border-color: var(--accent); }
+
+@media (max-width: 640px) {
+  .app { max-width: 100%; }
+  header { padding: 10px 14px; }
+  .messages { padding: 14px; }
+  .input-area { padding: 12px 14px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">🤖 AI 语音分析助手</div>
+    <div class="spacer"></div>
+    <a class="back-link" href="/">← 返回字幕</a>
+    <button class="theme-btn" id="themeBtn">🌙</button>
+  </header>
+
+  <div class="context-bar" id="contextBar" style="display:none;">
+    <span>📎 已加载转录上下文 (<span id="contextCount">0</span> 句)</span>
+    <span class="close-ctx" id="clearContext">✕</span>
+  </div>
+
+  <div class="messages" id="messages">
+    <div class="welcome" id="welcome">
+      <h2>🎧 语音分析助手</h2>
+      <p>我可以帮你分析转录内容、生成笔记、提取要点、纠正错误。可以从字幕页面把转录内容带过来。</p>
+      <div class="suggestions">
+        <div class="suggestion" data-q="帮我总结这段内容的要点">📝 总结要点</div>
+        <div class="suggestion" data-q="提取其中的关键术语和概念">🔑 提取术语</div>
+        <div class="suggestion" data-q="生成一份简洁的会议纪要">📋 生成纪要</div>
+        <div class="suggestion" data-q="找出可能的识别错误并纠正">🔧 纠正错误</div>
+        <div class="suggestion" data-q="把内容整理成课堂笔记格式">📖 整理笔记</div>
+        <div class="suggestion" data-q="用一段话概括全部内容">💡 一句话概括</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="file-chips" id="fileChips"></div>
+  <div class="upload-progress" id="uploadProgress">⏳ 正在转写音频文件…</div>
+
+  <div class="input-area">
+    <input type="file" id="fileInput" style="display:none;" multiple accept=".txt,.srt,.vtt,.json,.wav,.mp3,.flac,.m4a,.ogg,.webm,.opus" />
+    <select id="recordingSelect" class="input-select" title="选择已录制的录音（可选，加载为分析上下文）">
+      <option value="">🎙 录音…</option>
+    </select>
+    <button class="upload-btn" id="uploadBtn" title="上传本地文件（文本/音频）">
+      <svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+    </button>
+    <div class="input-wrap">
+      <textarea id="inputBox" placeholder="输入你的问题… (Enter 发送, Shift+Enter 换行)" rows="1"></textarea>
+    </div>
+    <button class="send-btn" id="sendBtn" title="发送">
+      <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+// Theme
+let darkMode = localStorage.getItem('theme') === 'dark' || (localStorage.getItem('theme') === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+  document.getElementById('themeBtn').textContent = darkMode ? '☀' : '🌙';
+}
+applyTheme();
+document.getElementById('themeBtn').addEventListener('click', () => { darkMode = !darkMode; localStorage.setItem('theme', darkMode ? 'dark' : 'light'); applyTheme(); });
+
+// State
+let chatHistory = []; // {role, content}
+let transcriptContext = '';
+let streaming = false;
+
+const messagesEl = document.getElementById('messages');
+const welcomeEl = document.getElementById('welcome');
+const inputBox = document.getElementById('inputBox');
+const sendBtn = document.getElementById('sendBtn');
+const contextBar = document.getElementById('contextBar');
+
+// Load transcript context from localStorage (shared with main page's 录音库)
+const REC_KEY = 'caption_sessions';
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function getRecordings(){try{return JSON.parse(localStorage.getItem(REC_KEY)||'[]')}catch{return[]}}
+function formatSessionLines(s){
+  return (s.data||[]).map(d=>`${d.en||''}\n${d.zh||''}`).filter(Boolean).join('\n');
+}
+function populateRecordingSelect(selectedId){
+  const sel=document.getElementById('recordingSelect');
+  const recs=getRecordings();
+  sel.innerHTML='<option value="">🎙 录音…</option>'+recs.map(r=>
+    `<option value="${r.id}"${String(r.id)===String(selectedId)?' selected':''}>${esc(r.title)}（${r.count}句 · ${new Date(r.created).toLocaleDateString()}）</option>`
+  ).join('');
+}
+function loadRecording(id){
+  const rec=getRecordings().find(r=>String(r.id)===String(id));
+  if(!rec){return false}
+  const lines=formatSessionLines(rec);
+  if(!lines.trim()){addMessage('system',`❌ 录音「${rec.title}」没有可用的转录内容`);return false}
+  transcriptContext=lines;
+  uploadedFiles=[];
+  renderFileChips();
+  contextBar.style.display='flex';
+  document.getElementById('contextCount').textContent=rec.count+' 句';
+  addMessage('system',`📚 已加载录音: ${rec.title}（${rec.count} 句）`);
+  return true;
+}
+
+// File upload handling
+const fileInput = document.getElementById('fileInput');
+const uploadBtn = document.getElementById('uploadBtn');
+const fileChips = document.getElementById('fileChips');
+const uploadProgress = document.getElementById('uploadProgress');
+let uploadedFiles = []; // {name, content}
+
+const AUDIO_EXTS = ['.wav','.mp3','.flac','.m4a','.ogg','.webm','.opus'];
+const TEXT_EXTS = ['.txt','.srt','.vtt','.json'];
+
+uploadBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', async () => {
+  const files = [...fileInput.files];
+  if (!files.length) return;
+  fileInput.value = '';
+
+  for (const file of files) {
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (TEXT_EXTS.includes(ext)) {
+      // Read text file directly
+      const text = await file.text();
+      addUploadedFile(file.name, text);
+    } else if (AUDIO_EXTS.includes(ext)) {
+      // Transcribe audio via API
+      uploadProgress.classList.add('show');
+      uploadProgress.textContent = `⏳ 正在转写: ${file.name}…`;
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('response_format', 'verbose_json');
+        formData.append('translate_to_zh', 'true');
+        const resp = await fetch('/v1/audio/transcriptions', { method: 'POST', body: formData });
+        if (!resp.ok) throw new Error(`转写失败 (${resp.status})`);
+        const data = await resp.json();
+        // Format: segments with text + translation
+        let content = '';
+        if (data.segments) {
+          content = data.segments.map(s => `${s.text}\n${s.translation || ''}`).join('\n\n');
+        } else {
+          content = data.text || JSON.stringify(data);
+        }
+        addUploadedFile(file.name, content);
+      } catch (e) {
+        addMessage('system', `❌ ${file.name}: ${e.message}`);
+      }
+      uploadProgress.classList.remove('show');
+    } else {
+      addMessage('system', `❌ 不支持的文件格式: ${ext}`);
+    }
+  }
+});
+
+function addUploadedFile(name, content) {
+  uploadedFiles.push({ name, content });
+  renderFileChips();
+  // Add to transcript context
+  transcriptContext += (transcriptContext ? '\n\n' : '') + `[文件: ${name}]\n${content}`;
+  contextBar.style.display = 'flex';
+  document.getElementById('contextCount').textContent = `${uploadedFiles.length} 文件`;
+  addMessage('system', `📎 已加载: ${name} (${(content.length/1024).toFixed(1)}KB)`);
+}
+
+function renderFileChips() {
+  fileChips.innerHTML = uploadedFiles.map((f, i) => `
+    <span class="file-chip">📄 ${f.name} <span class="chip-del" data-idx="${i}">✕</span></span>
+  `).join('');
+  fileChips.querySelectorAll('.chip-del').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = Number(el.dataset.idx);
+      uploadedFiles.splice(idx, 1);
+      // Rebuild context
+      transcriptContext = uploadedFiles.map(f => `[文件: ${f.name}]\n${f.content}`).join('\n\n');
+      if (!uploadedFiles.length && !transcriptContext) contextBar.style.display = 'none';
+      renderFileChips();
+    });
+  });
+}
+
+// Recording-library source selection (must run after uploadedFiles is declared)
+(function initRecordingSource(){
+  populateRecordingSelect();
+  const recs=getRecordings();
+  if(recs.length){loadRecording(recs[0].id);populateRecordingSelect(recs[0].id)}
+})();
+document.getElementById('recordingSelect').addEventListener('change',e=>{
+  loadRecording(e.target.value);
+});
+document.getElementById('clearContext').addEventListener('click', () => {
+  transcriptContext = '';
+  uploadedFiles = [];
+  renderFileChips();
+  contextBar.style.display = 'none';
+  document.getElementById('recordingSelect').value='';
+});
+
+// Drag & drop support on the whole app
+document.querySelector('.app').addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+document.querySelector('.app').addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (e.dataTransfer.files.length) {
+    fileInput.files = e.dataTransfer.files;
+    fileInput.dispatchEvent(new Event('change'));
+  }
+});
+
+// Auto-resize textarea
+inputBox.addEventListener('input', () => {
+  inputBox.style.height = 'auto';
+  inputBox.style.height = Math.min(inputBox.scrollHeight, 160) + 'px';
+});
+
+// Suggestions
+document.querySelectorAll('.suggestion').forEach(s => {
+  s.addEventListener('click', () => { inputBox.value = s.dataset.q; sendMessage(); });
+});
+
+// Send message
+inputBox.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+sendBtn.addEventListener('click', sendMessage);
+
+function addMessage(role, content) {
+  if (welcomeEl.parentNode) welcomeEl.remove();
+  const div = document.createElement('div');
+  div.className = `msg msg-${role}`;
+  div.textContent = content;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
+
+async function sendMessage() {
+  const text = inputBox.value.trim();
+  if (!text || streaming) return;
+
+  // Show user message
+  addMessage('user', text);
+  chatHistory.push({ role: 'user', content: text });
+  inputBox.value = '';
+  inputBox.style.height = 'auto';
+
+  // Show AI thinking
+  const aiDiv = addMessage('ai', '');
+  aiDiv.innerHTML = '<span class="thinking">思考中…</span>';
+  streaming = true;
+  sendBtn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: chatHistory,
+        transcript: transcriptContext,
+      }),
+    });
+
+    if (!resp.ok) {
+      aiDiv.textContent = `[错误 ${resp.status}]`;
+      streaming = false;
+      sendBtn.disabled = false;
+      return;
+    }
+
+    // Stream response
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let aiContent = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const dataStr = line.slice(6).trim();
+        if (dataStr === '[DONE]') break;
+        try {
+          const chunk = JSON.parse(dataStr);
+          if (chunk.error) { aiContent += `[错误: ${chunk.error}]`; break; }
+          const delta = chunk.choices?.[0]?.delta;
+          if (delta?.content) {
+            aiContent += delta.content;
+            aiDiv.textContent = aiContent;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+        } catch {}
+      }
+    }
+
+    if (!aiContent) aiContent = '[无响应]';
+    aiDiv.textContent = aiContent;
+    chatHistory.push({ role: 'assistant', content: aiContent });
+
+  } catch (e) {
+    aiDiv.textContent = `[请求失败: ${e.message}]`;
+  }
+
+  streaming = false;
+  sendBtn.disabled = false;
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+</script>
+</body>
+</html>

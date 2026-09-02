@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>实时英中字幕 · Live Captions</title>
+<style>
+:root,[data-theme="light"]{--bg:#fff;--bg-soft:#f7f6f3;--bg-hover:#efeeec;--border:#e9e9e7;--border-strong:#d3d1cb;--text:#37352f;--text-soft:#787774;--text-faint:#9b9a97;--accent:#2383e2;--accent-soft:#e7f3fb;--red:#e03e3e;--red-soft:#fbe4e4;--green:#0f7b3e;--green-soft:#e6f3ec;--orange:#d9730d;--orange-soft:#fbecdb;--shadow:0 4px 12px rgba(15,15,15,.08);--radius:6px;--sidebar-w:280px;--waveform-color:rgba(35,131,226,.6)}
+[data-theme="dark"]{--bg:#191919;--bg-soft:#202020;--bg-hover:#2a2a2a;--border:#333;--border-strong:#444;--text:#e8e8e6;--text-soft:#9b9a97;--text-faint:#6b6b6b;--accent:#529CCA;--accent-soft:#1a3a52;--red:#eb5757;--red-soft:#3d2222;--green:#4dab6f;--green-soft:#1a3328;--orange:#e9973f;--orange-soft:#3d2e1a;--shadow:0 4px 12px rgba(0,0,0,.4);--waveform-color:rgba(82,156,202,.7)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;overflow:hidden;transition:background .3s}
+/* ====== LAYOUT ====== */
+.app{height:100vh;display:flex}
+/* Sidebar */
+.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg-soft);transition:margin .25s,background .3s}
+.sidebar.collapsed{margin-left:calc(-1*var(--sidebar-w))}
+.sidebar-header{padding:14px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
+.sidebar-header h2{font-size:14px;font-weight:600;flex:1}
+.sidebar-list{flex:1;overflow-y:auto;padding:8px}
+.sidebar-list::-webkit-scrollbar{width:5px}
+.sidebar-list::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:5px}
+.sb-item{padding:10px 12px;border-radius:var(--radius);cursor:pointer;margin-bottom:4px;transition:background .12s;position:relative}
+.sb-item:hover{background:var(--bg-hover)}
+.sb-item.active{background:var(--accent-soft);border-left:3px solid var(--accent)}
+.sb-item-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-item-meta{font-size:11px;color:var(--text-faint);margin-top:2px}
+.sb-item-del{position:absolute;top:8px;right:8px;font-size:11px;color:var(--red);opacity:0;cursor:pointer}
+.sb-item-edit{position:absolute;top:8px;right:28px;font-size:11px;opacity:0;cursor:pointer}
+.sb-item:hover .sb-item-del,.sb-item:hover .sb-item-edit{opacity:1}
+.sidebar-footer{padding:10px 16px;border-top:1px solid var(--border)}
+.new-btn{width:100%;height:34px;border:1px dashed var(--border-strong);border-radius:var(--radius);background:transparent;color:var(--text-soft);font-size:13px;cursor:pointer;transition:all .12s}
+.new-btn:hover{background:var(--bg-hover);border-color:var(--accent);color:var(--accent)}
+/* Main panel */
+.main-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.main-header{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--bg);min-height:52px}
+.toggle-sidebar{width:28px;height:28px;display:grid;place-items:center;border:1px solid var(--border);border-radius:4px;background:var(--bg-soft);cursor:pointer;color:var(--text-soft);font-size:14px}
+.toggle-sidebar:hover{background:var(--bg-hover)}
+.main-title{font-size:15px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon-btn{width:28px;height:28px;display:grid;place-items:center;background:transparent;border:1px solid transparent;border-radius:4px;color:var(--text-soft);cursor:pointer;transition:background .12s}
+.icon-btn:hover{background:var(--bg-hover);color:var(--text)}
+.icon-btn.active{background:var(--accent-soft);color:var(--accent)}
+.icon-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.divider{width:1px;height:18px;background:var(--border);margin:0 2px}
+/* Recording controls */
+.rec-controls{display:flex;align-items:center;gap:8px;padding:8px 20px;border-bottom:1px solid var(--border);background:var(--bg)}
+.btn{height:32px;padding:0 14px;border-radius:16px;border:1px solid var(--text);background:var(--text);color:var(--bg);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:all .2s}
+.btn:hover{opacity:.88}
+.btn:active{transform:scale(.95)}
+.btn .glyph{width:9px;height:9px;background:var(--red);border-radius:50%;transition:all .2s}
+.btn.recording{background:var(--red);border-color:var(--red);color:#fff}
+.btn.recording .glyph{background:#fff;border-radius:2px}
+.btn-pause{height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--orange);background:var(--orange);color:#fff;font-size:13px;cursor:pointer;display:none}
+.btn-pause.paused{background:var(--green);border-color:var(--green)}
+.waveform-wrap{width:100px;height:28px;border-radius:4px;overflow:hidden}
+.waveform-wrap canvas{width:100%;height:100%;display:block}
+.elapsed{font-variant-numeric:tabular-nums;font-size:12px;color:var(--text-faint)}
+.status{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;font-size:12px;color:var(--text-soft);background:var(--bg-soft);border-radius:4px}
+.status .dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint)}
+.status.live{color:var(--green);background:var(--green-soft)}
+.status.live .dot{background:var(--green);animation:pulse 1.6s ease-in-out infinite}
+.status.error{color:var(--red);background:var(--red-soft)}
+.status.error .dot{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* Content area */
+.content{flex:1;overflow-y:auto;padding:20px;background:var(--bg)}
+.content::-webkit-scrollbar{width:8px}
+.content::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px;border:2px solid var(--bg)}
+/* Transcript items */
+.sentence{padding:10px 14px;border-radius:var(--radius);transition:background .12s;position:relative;margin-bottom:2px}
+.sentence:hover{background:var(--bg-soft)}
+.sentence.current{background:var(--bg-soft);border-left:3px solid var(--accent);padding-left:11px}
+.sentence.bookmarked{border-left:3px solid var(--orange)}
+.s-time{font-size:11px;color:var(--text-faint);font-variant-numeric:tabular-nums;margin-right:8px}
+.s-en{font-size:13px;color:var(--text-faint);line-height:1.55;margin-bottom:3px}
+.s-zh{font-size:var(--zh-size,18px);color:var(--text);line-height:1.55;font-weight:500}
+.s-zh.pending{color:var(--text-faint);font-weight:400}
+.s-zh.pending::after{content:'…';animation:dots 1.4s ease-in-out infinite}
+@keyframes dots{0%,100%{opacity:.3}50%{opacity:1}}
+.bookmark-btn{position:absolute;top:8px;right:8px;width:20px;height:20px;display:none;cursor:pointer;color:var(--text-faint);background:none;border:none;font-size:14px}
+.sentence:hover .bookmark-btn{display:block}
+.sentence.bookmarked .bookmark-btn{display:block;color:var(--orange)}
+.highlight{background:var(--accent-soft);border-radius:2px;padding:0 1px}
+/* Search bar */
+.search-bar{display:none;align-items:center;gap:8px;padding:8px 20px;border-bottom:1px solid var(--border);background:var(--bg)}
+.search-bar.show{display:flex}
+.search-bar input{flex:1;height:30px;border:1px solid var(--border);border-radius:4px;padding:0 10px;background:var(--bg-soft);color:var(--text);font-size:13px;outline:none}
+.search-bar input:focus{border-color:var(--accent)}
+.search-count{font-size:11px;color:var(--text-faint);min-width:60px;text-align:right}
+.close-x{width:24px;height:24px;border:none;background:var(--bg-soft);border-radius:4px;cursor:pointer;color:var(--text-soft);font-size:12px;display:grid;place-items:center}
+.close-x:hover{background:var(--bg-hover)}
+/* Footer bar */
+.footer-bar{display:flex;align-items:center;gap:10px;padding:8px 20px;border-top:1px solid var(--border);background:var(--bg);font-size:12px;color:var(--text-faint)}
+.mode-group{display:flex;align-items:center;gap:3px}
+.mode-group label{font-size:11px;color:var(--text-faint);margin-right:4px}
+.mode-pip{height:22px;padding:0 7px;border:1px solid var(--border);background:var(--bg);border-radius:3px;cursor:pointer;color:var(--text-soft);font-size:11px;transition:all .1s}
+.mode-pip:hover{background:var(--bg-hover)}
+.mode-pip.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.size-group{display:flex;align-items:center;gap:3px}
+.size-pip{width:22px;height:20px;border:1px solid var(--border);background:var(--bg);border-radius:3px;cursor:pointer;color:var(--text-soft);font-weight:500;transition:all .1s}
+.size-pip:hover{background:var(--bg-hover)}
+.size-pip.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+/* Display modes */
+.content.mode-zh-only .s-en{display:none}
+.content.mode-en-only .s-zh{display:none}
+.content.mode-subtitle .sentence:not(.current){display:none}
+/* Empty state */
+.empty-state{text-align:center;padding:80px 20px;color:var(--text-faint)}
+.empty-state-icon{font-size:36px;margin-bottom:12px}
+.empty-state-title{font-size:16px;color:var(--text);font-weight:600;margin-bottom:6px}
+.empty-state-desc{font-size:13px;max-width:340px;margin:0 auto}
+/* Toast */
+.toast{position:fixed;bottom:60px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--text);color:var(--bg);padding:8px 14px;border-radius:6px;font-size:13px;opacity:0;pointer-events:none;transition:all .2s;z-index:100;box-shadow:var(--shadow)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* Export dropdown */
+.export-dd{position:absolute;top:36px;right:0;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50;min-width:160px;padding:4px 0;display:none}
+.export-dd.show{display:block}
+.export-dd-item{padding:8px 14px;font-size:13px;cursor:pointer;color:var(--text)}
+.export-dd-item:hover{background:var(--bg-hover)}
+/* FAB */
+.fab-chat{position:fixed;bottom:24px;right:24px;width:48px;height:48px;border-radius:50%;background:var(--accent);color:#fff;border:none;box-shadow:0 4px 16px rgba(35,131,226,.35);cursor:grab;display:grid;place-items:center;z-index:50;user-select:none;touch-action:none;transition:box-shadow .2s,transform .15s}
+.fab-chat:hover{box-shadow:0 6px 20px rgba(35,131,226,.45)}
+.fab-chat.dragging{transition:none;transform:scale(1.05)}
+.fab-chat svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;pointer-events:none}
+/* Settings panel */
+.settings-overlay{position:fixed;inset:0;background:rgba(15,15,15,.25);z-index:300;opacity:0;pointer-events:none;transition:opacity .2s}
+.settings-overlay.show{opacity:1;pointer-events:auto}
+.settings-panel{position:fixed;top:0;right:0;bottom:0;width:320px;max-width:90vw;background:var(--bg);border-left:1px solid var(--border);z-index:301;transform:translateX(100%);transition:transform .25s ease;padding:20px;overflow-y:auto}
+.settings-panel.show{transform:translateX(0)}
+.sp-header{display:flex;align-items:center;justify-content:space-between;font-size:16px;font-weight:600;margin-bottom:20px}
+.sp-group{margin-bottom:16px}
+.sp-label{font-size:11px;color:var(--text-soft);margin-bottom:5px;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.sp-select,.sp-input{width:100%;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg-soft);color:var(--text);font-size:13px;outline:none}
+.sp-select:focus,.sp-input:focus{border-color:var(--accent)}
+.sp-textarea{width:100%;min-height:80px;padding:8px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg-soft);color:var(--text);font-size:12px;font-family:inherit;line-height:1.6;resize:vertical;outline:none}
+.sp-textarea:focus{border-color:var(--accent)}
+.sp-hint{font-size:11px;color:var(--text-faint);margin-top:4px}
+.theme-toggle{display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.theme-opt{flex:1;padding:6px 0;text-align:center;font-size:12px;cursor:pointer;background:var(--bg);color:var(--text-soft);border-right:1px solid var(--border);transition:all .15s}
+.theme-opt:last-child{border-right:none}
+.theme-opt.on{background:var(--accent);color:#fff}
+.theme-opt:hover:not(.on){background:var(--bg-hover)}
+/* Responsive */
+@media(max-width:768px){.sidebar{position:fixed;z-index:200;height:100%;box-shadow:var(--shadow)}.sidebar.collapsed{margin-left:calc(-1*var(--sidebar-w))}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar: Recording Library -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>📁 录音库</h2>
+      <button class="icon-btn" id="sidebarClose" title="收起"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+    </div>
+    <div class="sidebar-list" id="sidebarList"></div>
+    <div class="sidebar-footer">
+      <button class="new-btn" id="newRecBtn">＋ 新录制</button>
+    </div>
+  </aside>
+
+  <!-- Main Panel -->
+  <div class="main-panel">
+    <div class="main-header">
+      <button class="toggle-sidebar" id="toggleSidebar" title="录音库">☰</button>
+      <span class="main-title" id="mainTitle">新录制</span>
+      <div class="spacer" style="flex:1"></div>
+      <button class="icon-btn" id="copyBtn" title="复制中文"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg></button>
+      <button class="icon-btn" id="searchToggle" title="搜索"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></button>
+      <button class="icon-btn" id="exportToggle" title="导出" style="position:relative"><svg viewBox="0 0 24 24"><path d="M12 4v12m0 0l-4-4m4 4l4-4M5 20h14"/></svg><div class="export-dd" id="exportDD"><div class="export-dd-item" data-fmt="txt-zh">📄 中文 .txt</div><div class="export-dd-item" data-fmt="txt-en">📄 英文 .txt</div><div class="export-dd-item" data-fmt="txt-both">📄 双语 .txt</div><div class="export-dd-item" data-fmt="srt">🎬 .srt 字幕</div><div class="export-dd-item" data-fmt="vtt">🎬 .vtt 字幕</div></div></button>
+      <button class="icon-btn" id="clearBtn" title="清空"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2M7 7l1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13"/></svg></button>
+      <button class="icon-btn" id="statsBtn" title="用量统计"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 16l4-5 4 3 4-6"/></svg></button>
+      <button class="icon-btn" id="pipBtn" title="浮窗字幕"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="14" height="16" rx="2"/><rect x="14" y="10" width="8" height="10" rx="2"/></svg></button>
+      <button class="icon-btn" id="listenBtn" title="听力练习" onclick="window.open('/listen','_blank')"><svg viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></button>
+      <button class="icon-btn" id="settingsToggle" title="设置"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68 1.65 1.65 0 0 0 10 3.17V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+    </div>
+
+    <!-- Recording controls bar -->
+    <div class="rec-controls" id="recControls">
+      <button class="btn" id="toggleBtn"><span class="glyph"></span><span id="btnText">开始录音</span></button>
+      <button class="btn-pause" id="pauseBtn">⏸</button>
+      <div class="waveform-wrap"><canvas id="waveformCanvas"></canvas></div>
+      <span class="elapsed" id="elapsed">00:00:00</span>
+      <span class="status" id="statusEl"><span class="dot"></span><span id="statusText">未连接</span></span>
+    </div>
+
+    <!-- Search bar -->
+    <div class="search-bar" id="searchBar">
+      <input id="searchInput" placeholder="搜索转录文本…" />
+      <span class="search-count" id="searchCount"></span>
+      <button class="close-x" id="searchClose">✕</button>
+    </div>
+
+    <!-- Content: transcript -->
+    <div class="content" id="content">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-state-icon">🎧</div>
+        <div class="empty-state-title">准备就绪</div>
+        <div class="empty-state-desc">点击「开始录音」，英文语音将实时识别并翻译为中文。也可以从左侧录音库查看历史。</div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-bar">
+      <div class="mode-group">
+        <label>显示</label>
+        <button class="mode-pip on" data-mode="default">双语</button>
+        <button class="mode-pip" data-mode="zh-only">中文</button>
+        <button class="mode-pip" data-mode="en-only">英文</button>
+        <button class="mode-pip" data-mode="subtitle">字幕</button>
+      </div>
+      <div style="flex:1"></div>
+      <div class="size-group">
+        <button class="size-pip" data-size="16" style="font-size:10px">A</button>
+        <button class="size-pip on" data-size="18" style="font-size:12px">A</button>
+        <button class="size-pip" data-size="22" style="font-size:14px">A</button>
+        <button class="size-pip" data-size="28" style="font-size:16px">A</button>
+      </div>
+      <span style="margin-left:8px" id="countLabel">0 句</span>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Modal -->
+<div class="settings-overlay" id="statsOverlay"></div>
+<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);width:340px;max-width:90vw;z-index:302;padding:20px;display:none" id="statsModal">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span style="font-weight:600;font-size:15px">📊 用量统计</span><button class="close-x" id="statsClose">✕</button></div>
+  <div style="font-size:14px">
+    <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--text-soft)">录音时长</span><span id="sAudio">0 秒</span></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--text-soft)">翻译句数</span><span id="sTrans">0 句</span></div>
+    <div style="height:1px;background:var(--border);margin:8px 0"></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--text-soft)">语音识别</span><span id="sAsr">¥0.00</span></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--text-soft)">翻译费用</span><span id="sTr">¥0.00</span></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="font-weight:600">合计</span><span style="color:var(--accent);font-weight:600;font-size:16px" id="sTotal">¥0.00</span></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Settings Panel (right slide) -->
+<div class="settings-overlay" id="settingsOverlay"></div>
+<div class="settings-panel" id="settingsPanel">
+  <div class="sp-header"><span>⚙ 设置</span><button class="close-x" id="settingsClose">✕</button></div>
+
+  <div class="sp-group">
+    <div class="sp-label">主题</div>
+    <div class="theme-toggle" id="themeToggle">
+      <div class="theme-opt" data-theme="light">☀ 亮色</div>
+      <div class="theme-opt" data-theme="dark">🌙 暗色</div>
+      <div class="theme-opt" data-theme="system">💻 系统</div>
+    </div>
+  </div>
+
+  <div class="sp-group">
+    <div class="sp-label">音频来源</div>
+    <select class="sp-select" id="audioSourceSelect">
+      <option value="mic">🎙 麦克风</option>
+      <option value="system">🖥 系统音频（屏幕共享）</option>
+      <option value="both">🎙+🖥 混合</option>
+    </select>
+  </div>
+
+  <div class="sp-group">
+    <div class="sp-label">麦克风设备</div>
+    <select class="sp-select" id="micSelect"><option value="">默认设备</option></select>
+  </div>
+
+  <div class="sp-group">
+    <div class="sp-label">源语言（识别）</div>
+    <select class="sp-select" id="srcLangSelect">
+      <option value="en">🇬🇧 英语</option>
+      <option value="zh">🇨🇳 中文</option>
+      <option value="ja">🇯🇵 日语</option>
+      <option value="ko">🇰🇷 韩语</option>
+      <option value="fr">🇫🇷 法语</option>
+      <option value="de">🇩🇪 德语</option>
+    </select>
+  </div>
+
+  <div class="sp-group">
+    <div class="sp-label">目标语言（翻译）</div>
+    <select class="sp-select" id="tgtLangSelect">
+      <option value="zh">🇨🇳 中文</option>
+      <option value="en">🇬🇧 英语</option>
+      <option value="ja">🇯🇵 日语</option>
+      <option value="ko">🇰🇷 韩语</option>
+      <option value="fr">🇫🇷 法语</option>
+      <option value="de">🇩🇪 德语</option>
+    </select>
+  </div>
+
+  <div class="sp-group">
+    <div class="sp-label">热词/术语表</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <select class="sp-select" id="hotwordFileSelect" style="flex:1"><option value="">-- 选择词表 --</option></select>
+      <button class="close-x" id="hwRefresh" title="刷新" style="font-size:13px">↻</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <button class="close-x" id="hwImportBtn" title="导入文件" style="font-size:11px;width:auto;padding:0 8px;">📂 导入</button>
+      <button class="close-x" id="hwNewBtn" title="新建" style="font-size:11px;width:auto;padding:0 8px;">＋ 新建</button>
+      <button class="close-x" id="hwDeleteBtn" title="删除当前" style="font-size:11px;width:auto;padding:0 8px;color:var(--red)">🗑</button>
+    </div>
+    <input type="file" id="hwFileInput" style="display:none" accept=".txt,.csv" />
+    <textarea class="sp-textarea" id="hotwordsArea" placeholder="每行一个术语，例如：&#10;Transformer&#10;gradient descent = 梯度下降"></textarea>
+    <div style="display:flex;justify-content:space-between;margin-top:6px;">
+      <span class="sp-hint">录音时自动传给 AI 提高准确度</span>
+      <button class="close-x" id="hwSaveBtn" style="font-size:11px;width:auto;padding:0 8px;background:var(--accent);color:#fff;border-color:var(--accent)">💾 保存</button>
+    </div>
+  </div>
+
+  <div class="sp-group">
+    <div class="sp-label">长句 & 翻译频率</div>
+    <div class="sp-hint" style="margin-bottom:8px">超长句子自动切分；提前翻译控制翻译刷新的频率，点击「保存」后生效</div>
+    <div class="sp-hint" style="margin-bottom:2px">单句最大词数（0=不切分）</div>
+    <input class="sp-input" id="setMaxWords" type="number" min="0" step="1" style="margin-bottom:8px" />
+    <div class="sp-hint" style="margin-bottom:2px">提前翻译触发词数</div>
+    <input class="sp-input" id="setProgThreshold" type="number" min="1" step="1" style="margin-bottom:8px" />
+    <div class="sp-hint" style="margin-bottom:2px">提前翻译间隔（秒）</div>
+    <input class="sp-input" id="setProgInterval" type="number" min="0.5" step="0.5" style="margin-bottom:8px" />
+    <div class="sp-hint" style="margin-bottom:2px">提前翻译新增词数（超过才触发）</div>
+    <input class="sp-input" id="setProgExtra" type="number" min="1" step="1" />
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+      <span class="sp-hint">修改后需点击保存才生效</span>
+      <button class="close-x" id="transSaveBtn" style="font-size:11px;width:auto;padding:0 10px;background:var(--accent);color:#fff;border-color:var(--accent)">💾 保存</button>
+    </div>
+  </div>
+
+  <div class="sp-group">
+    <div class="sp-label">WebSocket 地址</div>
+    <input class="sp-input" id="wsUrlInput" placeholder="留空自动检测" />
+  </div>
+</div>
+
+<!-- FAB: AI Chat -->
+<button class="fab-chat" id="fabChat" title="AI 助手"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+
+<script>
+// ===== Theme =====
+const ThemeManager={init(){const s=localStorage.getItem('theme')||'system';this.set(s);window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(this.current==='system')this._apply('system')})},set(t){this.current=t;localStorage.setItem('theme',t);this._apply(t)},_apply(t){const dark=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.setAttribute('data-theme',dark?'dark':'light')}};
+ThemeManager.init();
+
+// ===== State =====
+const DEBUG=new URLSearchParams(location.search).has('debug');
+let ws=null,audioCtx=null,mediaStream=null,workletNode=null;
+let recording=false,paused=false,intentionalStop=false;
+const sentences=new Map();
+let elapsedTimer=null,elapsedStart=0;
+let searchQuery='',lastRenderSig='';
+let configReadyResolve=null;
+let currentSessionId=null; // which saved session is loaded (null=new)
+
+const bookmarkedIds=new Set(JSON.parse(localStorage.getItem('bookmarks')||'[]'));
+const HISTORY_KEY='caption_sessions';
+
+// ===== DOM =====
+const toggleBtn=document.getElementById('toggleBtn'),btnText=document.getElementById('btnText');
+const pauseBtn=document.getElementById('pauseBtn');
+const statusEl=document.getElementById('statusEl'),statusText=document.getElementById('statusText');
+const elapsedEl=document.getElementById('elapsed');
+const content=document.getElementById('content'),emptyState=document.getElementById('emptyState');
+const toast=document.getElementById('toast');
+const mainTitle=document.getElementById('mainTitle');
+const countLabel=document.getElementById('countLabel');
+
+// ===== Helpers =====
+function setStatus(t,cls=''){statusText.textContent=t;statusEl.className='status'+(cls?' '+cls:'')}
+function showToast(m){toast.textContent=m;toast.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>toast.classList.remove('show'),1500)}
+function fmt(ms){const s=Math.floor(ms/1000);return`${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}
+function fmtSec(sec){const m=Math.floor(sec/60),s=Math.floor(sec%60);return`${m}:${String(s).padStart(2,'0')}`}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function startElapsed(){elapsedStart=Date.now();clearInterval(elapsedTimer);elapsedTimer=setInterval(()=>elapsedEl.textContent=fmt(Date.now()-elapsedStart),1000)}
+function stopElapsed(){clearInterval(elapsedTimer)}
+
+// ===== Waveform =====
+const WF={canvas:null,ctx:null,bars:[],active:false,animId:null,
+  init(){this.canvas=document.getElementById('waveformCanvas');this.ctx=this.canvas.getContext('2d');this.bars=new Array(20).fill(0);this._resize();window.addEventListener('resize',()=>this._resize())},
+  _resize(){const d=devicePixelRatio||1,r=this.canvas.getBoundingClientRect();this.canvas.width=r.width*d;this.canvas.height=r.height*d;this.ctx.scale(d,d);this.w=r.width;this.h=r.height},
+  start(){this.active=true;this._anim()},stop(){this.active=false;if(this.animId)cancelAnimationFrame(this.animId);this.bars.fill(0);this._draw()},
+  push(rms){this.bars.shift();this.bars.push(Math.min(1,rms*8))},
+  _anim(){if(!this.active)return;this._draw();this.animId=requestAnimationFrame(()=>this._anim())},
+  _draw(){const{ctx,w,h,bars}=this;ctx.clearRect(0,0,w,h);const s=getComputedStyle(document.documentElement);ctx.fillStyle=s.getPropertyValue('--waveform-color').trim()||'rgba(35,131,226,.6)';const bw=w/bars.length;for(let i=0;i<bars.length;i++){const bh=Math.max(2,bars[i]*h*.85);ctx.fillRect(i*bw+1,(h-bh)/2,bw-2,bh)}}
+};
+
+// ===== Render =====
+function render(){
+  const ids=[...sentences.keys()];
+  countLabel.textContent=ids.length+' 句';
+  if(!ids.length){content.innerHTML='';content.appendChild(emptyState);lastRenderSig='';return}
+  const sig=ids.map(id=>{const s=sentences.get(id);return`${id}:${s.en}|${s.zh}|${s.final}`}).join(';')+'|q:'+searchQuery;
+  if(sig===lastRenderSig)return;lastRenderSig=sig;
+  if(emptyState.parentNode)emptyState.remove();
+  content.innerHTML='';
+  const lastId=ids[ids.length-1];
+  for(const id of ids){
+    const s=sentences.get(id);
+    if(searchQuery){const mE=(s.en||'').toLowerCase().includes(searchQuery),mZ=(s.zh||'').toLowerCase().includes(searchQuery);if(!mE&&!mZ)continue}
+    const div=document.createElement('div');
+    const bk=bookmarkedIds.has(id);
+    div.className='sentence'+(id===lastId&&!s.final?' current':'')+(bk?' bookmarked':'');
+    const t=s.start!=null?fmtSec(s.start):'';
+    let enH=esc(s.en||''),zhH=esc(s.zh||'正在翻译');
+    if(searchQuery){const re=new RegExp(`(${esc(searchQuery)})`,'gi');enH=enH.replace(re,'<mark class="highlight">$1</mark>');zhH=zhH.replace(re,'<mark class="highlight">$1</mark>')}
+    div.innerHTML=`<button class="bookmark-btn">${bk?'★':'☆'}</button>${t?`<span class="s-time">${t}</span>`:''}<div class="s-en">${enH}</div><div class="s-zh${s.zh?'':' pending'}">${zhH}</div>`;
+    div.querySelector('.bookmark-btn').addEventListener('click',e=>{e.stopPropagation();if(bookmarkedIds.has(id))bookmarkedIds.delete(id);else bookmarkedIds.add(id);localStorage.setItem('bookmarks',JSON.stringify([...bookmarkedIds]));lastRenderSig='';render()});
+    div.addEventListener('dblclick',()=>{
+      const s=sentences.get(id);if(!s)return;
+      const newEn=prompt('编辑英文:',s.en||'');if(newEn===null)return;
+      const newZh=prompt('编辑中文:',s.zh||'');if(newZh===null)return;
+      s.en=newEn;s.zh=newZh;lastRenderSig='';render();showToast('已修改');
+    });
+    content.appendChild(div);
+  }
+  const atBottom=content.scrollHeight-content.scrollTop-content.clientHeight<60;
+  if(atBottom)content.scrollTop=content.scrollHeight;
+}
+
+// ===== WebSocket protocol =====
+function handleMessage(msg){
+  switch(msg.type){
+    case'config':if(configReadyResolve){configReadyResolve(msg);configReadyResolve=null}break;
+    case'translation_stream':{const c=sentences.get(msg.line_id)||{en:'',zh:'',final:false};c.zh=msg.accumulated;if(msg.final)c.final=true;sentences.set(msg.line_id,c);render()}break;
+    case'result':{const id=msg.sentence_id??'live';const c=sentences.get(id)||{en:'',zh:'',final:false};if(msg.en!==undefined)c.en=msg.en;if(msg.zh!==undefined)c.zh=msg.zh;if(msg.en_final)c.en_final=true;if(msg.zh_final)c.final=true;sentences.set(id,c);render()}break;
+    case'stats':statsData=msg;break;
+    case'ready_to_stop':setStatus('已完成');break;
+    case'error':setStatus('错误: '+msg.msg,'error');break;
+  }
+}
+
+// ===== Recording =====
+function getWsUrl(){const custom=(document.getElementById('wsUrlInput')?.value||'').trim();if(custom)return custom;const p=location.protocol==='https:'?'wss':'ws';return`${p}://${location.host}/ws?mode=full`}
+
+async function start(){
+  intentionalStop=false;paused=false;
+  const cfgReady=new Promise(r=>{configReadyResolve=r});
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){throw new Error('麦克风不可用，请用 http://localhost 访问')}
+    setStatus('请求音频…');
+
+    const audioSource=document.getElementById('audioSourceSelect')?.value||'mic';
+    const savedMic=document.getElementById('micSelect')?.value||localStorage.getItem('micId')||'';
+
+    if(audioSource==='mic'||audioSource==='both'){
+      // Get microphone
+      const audioConstraints={sampleRate:16000,channelCount:1,echoCancellation:true,noiseSuppression:true};
+      if(savedMic)audioConstraints.deviceId={ideal:savedMic};
+      try{
+        mediaStream=await navigator.mediaDevices.getUserMedia({audio:audioConstraints});
+      }catch(micErr){
+        if(savedMic){
+          mediaStream=await navigator.mediaDevices.getUserMedia({audio:{sampleRate:16000,channelCount:1,echoCancellation:true,noiseSuppression:true}});
+          showToast('已回退到默认麦克风');
+        }else{throw micErr}
+      }
+    }
+
+    if(audioSource==='system'||audioSource==='both'){
+      // Get system audio via screen sharing
+      try{
+        const sysStream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:{channelCount:1}});
+        // Windows/Edge 上对 getDisplayMedia 的视频轨道 stop() 会连带中断系统音频捕获
+        // （Chromium 已知问题），改为 enabled=false 只静默视频、保留捕获会话。
+        sysStream.getVideoTracks().forEach(t=>{t.enabled=false});
+        if(sysStream.getAudioTracks().length===0)throw new Error('未获取到系统音频，请勾选"分享系统音频"');
+        if(audioSource==='both'&&mediaStream){
+          // Mix mic + system
+          const mixCtx=new AudioContext();
+          const dest=mixCtx.createMediaStreamDestination();
+          mixCtx.createMediaStreamSource(mediaStream).connect(dest);
+          mixCtx.createMediaStreamSource(sysStream).connect(dest);
+          mediaStream=dest.stream;
+          mediaStream._mixCtx=mixCtx;
+          mediaStream._extraStreams=[mediaStream,sysStream];
+        }else{
+          mediaStream=sysStream;
+        }
+      }catch(sysErr){
+        if(audioSource==='system')throw new Error(sysErr.message||'系统音频获取失败');
+        // both 模式下系统音频失败，仍用麦克风
+        showToast('系统音频获取失败，仅使用麦克风');
+      }
+    }
+
+    if(!mediaStream)throw new Error('未获取到任何音频输入');
+    if(DEBUG){
+      console.log('[dbg] audioSource=',audioSource);
+      mediaStream.getAudioTracks().forEach(t=>console.log('[dbg] audio track:',{readyState:t.readyState,muted:t.muted,enabled:t.enabled,settings:t.getSettings?.()}));
+    }
+    ws=new WebSocket(getWsUrl());ws.binaryType='arraybuffer';
+    ws.onopen=()=>setStatus('等待服务器…');
+    ws.onclose=()=>{if(!intentionalStop&&recording)scheduleReconnect();else setStatus('已断开')};
+    ws.onerror=()=>{if(!intentionalStop&&recording)scheduleReconnect();else setStatus('连接错误','error')};
+    ws.onmessage=ev=>handleMessage(JSON.parse(ev.data));
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('服务器超时')),5000));
+    await Promise.race([cfgReady,timeout]);
+    setStatus('录音中','live');startElapsed();
+    // Send hotwords
+    const hw=localStorage.getItem('hotwords')||'';
+    if(hw&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'hotwords',data:hw}));
+    // Send translation/sentence settings
+    sendTransSettings();
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    await audioCtx.audioWorklet.addModule('/static/audio-worker.js');
+    workletNode=new AudioWorkletNode(audioCtx,'capture-processor');
+    workletNode.port.onmessage=e=>{
+      if(e.data.type==='dbg'){if(DEBUG)console.log('[dbg]',e.data);return}
+      if(e.data.type==='pcm'){if(ws&&ws.readyState===WebSocket.OPEN&&recording&&!paused)ws.send(e.data.pcm16)}
+      else if(e.data.type==='energy'){WF.push(paused?0:e.data.rms);if(!paused)checkSilence(e.data.rms)}
+    };
+    const src=audioCtx.createMediaStreamSource(mediaStream);src.connect(workletNode);
+    recording=true;btnText.textContent='停止';toggleBtn.classList.add('recording');pauseBtn.style.display='inline-flex';
+    WF.start();mainTitle.textContent='录制中…';requestWakeLock();
+  }catch(err){console.error(err);setStatus('启动失败','error');showToast(err.message);stop()}
+}
+
+function stop(){
+  intentionalStop=true;recording=false;paused=false;
+  btnText.textContent='开始录音';toggleBtn.classList.remove('recording');
+  pauseBtn.style.display='none';pauseBtn.classList.remove('paused');pauseBtn.textContent='⏸';
+  WF.stop();stopElapsed();releaseWakeLock();clearTimeout(silenceTimer);silenceTimer=null;
+  if(workletNode){workletNode.disconnect();workletNode=null}
+  if(audioCtx){audioCtx.close();audioCtx=null}
+  if(mediaStream){if(mediaStream._mixCtx)mediaStream._mixCtx.close();if(mediaStream._extraStreams)mediaStream._extraStreams.forEach(s=>s.getTracks().forEach(t=>t.stop()));mediaStream.getTracks().forEach(t=>t.stop());mediaStream=null}
+  if(ws){try{if(ws.readyState===WebSocket.OPEN)ws.send(new ArrayBuffer(0))}catch{};setTimeout(()=>{if(ws){ws.close();ws=null}},1000)}
+  setStatus('未连接');
+  // Auto-save
+  if(sentences.size>0){saveCurrentSession();mainTitle.textContent=currentSessionId?getSessionTitle(currentSessionId):'已保存'}
+  configReadyResolve=null;
+}
+
+toggleBtn.addEventListener('click',()=>{if(recording)stop();else start()});
+pauseBtn.addEventListener('click',()=>{paused=!paused;pauseBtn.classList.toggle('paused',paused);pauseBtn.textContent=paused?'▶':'⏸';setStatus(paused?'已暂停':'录音中',paused?'':'live')});
+
+// Keyboard
+document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;if(e.code==='Space'){e.preventDefault();toggleBtn.click()}});
+
+// ===== Session management =====
+function getAllSessions(){return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]')}
+function saveSessions(list){localStorage.setItem(HISTORY_KEY,JSON.stringify(list))}
+function getSessionTitle(id){const s=getAllSessions().find(x=>x.id===id);return s?s.title:'录制'}
+
+function saveCurrentSession(){
+  if(sentences.size===0)return;
+  const list=getAllSessions();
+  const data=[...sentences.entries()].map(([k,v])=>({id:k,en:v.en,zh:v.zh,start:v.start,final:v.final}));
+  const now=new Date();
+  const title=`${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')} 录制`;
+  if(currentSessionId){
+    const idx=list.findIndex(x=>x.id===currentSessionId);
+    if(idx>=0){list[idx].data=data;list[idx].count=data.length;list[idx].updated=Date.now()}
+  }else{
+    currentSessionId=Date.now();
+    list.unshift({id:currentSessionId,title,count:data.length,created:Date.now(),updated:Date.now(),data});
+  }
+  if(list.length>20)list.length=20;
+  saveSessions(list);
+  renderSidebar();
+}
+
+function loadSession(id){
+  const list=getAllSessions();
+  const s=list.find(x=>x.id===id);
+  if(!s)return;
+  sentences.clear();
+  s.data.forEach(d=>sentences.set(d.id,{en:d.en||'',zh:d.zh||'',start:d.start,final:d.final||true}));
+  currentSessionId=id;
+  mainTitle.textContent=s.title;
+  lastRenderSig='';render();renderSidebar();
+}
+
+function deleteSession(id){
+  let list=getAllSessions();
+  list=list.filter(x=>x.id!==id);
+  saveSessions(list);
+  if(currentSessionId===id){sentences.clear();currentSessionId=null;mainTitle.textContent='新录制';render()}
+  renderSidebar();
+}
+
+function renameSession(id){
+  const list=getAllSessions();
+  const s=list.find(x=>x.id===id);
+  if(!s)return;
+  const name=prompt('重命名录音：',s.title);
+  if(name==null||!name.trim()||name.trim()===s.title)return;
+  s.title=name.trim();
+  saveSessions(list);
+  if(currentSessionId===id)mainTitle.textContent=s.title;
+  renderSidebar();
+}
+
+function newSession(){
+  if(recording)stop();
+  sentences.clear();currentSessionId=null;
+  mainTitle.textContent='新录制';lastRenderSig='';render();renderSidebar();
+}
+
+// ===== Sidebar =====
+function renderSidebar(){
+  const list=getAllSessions();
+  const el=document.getElementById('sidebarList');
+  if(!list.length){el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-faint);font-size:12px">暂无录音</div>';return}
+  el.innerHTML=list.map(s=>`<div class="sb-item${s.id===currentSessionId?' active':''}" data-id="${s.id}"><span class="sb-item-del" data-del="${s.id}" title="删除">✕</span><span class="sb-item-edit" data-edit="${s.id}" title="重命名">✏️</span><div class="sb-item-title">${esc(s.title)}</div><div class="sb-item-meta">${s.count} 句 · ${new Date(s.created).toLocaleDateString()}</div></div>`).join('');
+  el.querySelectorAll('.sb-item').forEach(item=>{
+    item.addEventListener('click',e=>{if(e.target.dataset.del||e.target.dataset.edit)return;loadSession(Number(item.dataset.id))});
+  });
+  el.querySelectorAll('.sb-item-del').forEach(btn=>{
+    btn.addEventListener('click',e=>{e.stopPropagation();deleteSession(Number(btn.dataset.del))});
+  });
+  el.querySelectorAll('.sb-item-edit').forEach(btn=>{
+    btn.addEventListener('click',e=>{e.stopPropagation();renameSession(Number(btn.dataset.edit))});
+  });
+}
+document.getElementById('newRecBtn').addEventListener('click',newSession);
+
+// Sidebar toggle
+const sidebar=document.getElementById('sidebar');
+document.getElementById('toggleSidebar').addEventListener('click',()=>sidebar.classList.toggle('collapsed'));
+document.getElementById('sidebarClose').addEventListener('click',()=>sidebar.classList.add('collapsed'));
+
+// ===== Search =====
+const searchBar=document.getElementById('searchBar'),searchInput=document.getElementById('searchInput');
+document.getElementById('searchToggle').addEventListener('click',()=>{const v=searchBar.classList.toggle('show');if(v)searchInput.focus();else{searchQuery='';searchInput.value='';lastRenderSig='';render()}});
+document.getElementById('searchClose').addEventListener('click',()=>{searchBar.classList.remove('show');searchQuery='';searchInput.value='';lastRenderSig='';render()});
+searchInput.addEventListener('input',()=>{searchQuery=searchInput.value.trim().toLowerCase();lastRenderSig='';render();if(searchQuery){const n=[...sentences.values()].filter(s=>(s.en||'').toLowerCase().includes(searchQuery)||(s.zh||'').toLowerCase().includes(searchQuery)).length;document.getElementById('searchCount').textContent=n+' 匹配'}else{document.getElementById('searchCount').textContent=''}});
+
+// ===== Export =====
+const exportDD=document.getElementById('exportDD');
+document.getElementById('exportToggle').addEventListener('click',e=>{e.stopPropagation();if(!sentences.size)return showToast('暂无内容');exportDD.classList.toggle('show')});
+document.addEventListener('click',()=>exportDD.classList.remove('show'));
+function srtT(sec){const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.floor(sec%60),ms=Math.floor((sec%1)*1000);return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(ms).padStart(3,'0')}`}
+function dl(c,f){const b=new Blob([c],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f;document.body.appendChild(a);a.click();a.remove()}
+document.querySelectorAll('.export-dd-item').forEach(i=>i.addEventListener('click',()=>{
+  const all=[...sentences.values()];const ts=new Date().toISOString().slice(0,16).replace(':','-');
+  switch(i.dataset.fmt){
+    case'txt-zh':dl(all.map(s=>s.zh||'').filter(Boolean).join('\n'),`中文-${ts}.txt`);break;
+    case'txt-en':dl(all.map(s=>s.en||'').filter(Boolean).join('\n'),`英文-${ts}.txt`);break;
+    case'txt-both':dl(all.map(s=>`${s.en||''}\n${s.zh||''}`).join('\n\n'),`双语-${ts}.txt`);break;
+    case'srt':{let r='';all.forEach((s,i)=>{r+=`${i+1}\n${srtT(s.start||i*3)} --> ${srtT(s.start?(s.start+3):((i+1)*3))}\n${s.zh||s.en||''}\n\n`});dl(r,`字幕-${ts}.srt`)}break;
+    case'vtt':{let r='WEBVTT\n\n';all.forEach((s,i)=>{r+=`${srtT(s.start||i*3).replace(',','.')} --> ${srtT(s.start?(s.start+3):((i+1)*3)).replace(',','.')}\n${s.zh||s.en||''}\n\n`});dl(r,`字幕-${ts}.vtt`)}break;
+  }
+  exportDD.classList.remove('show');showToast('已导出');
+}));
+
+// ===== Display mode =====
+let displayMode=localStorage.getItem('displayMode')||'default';
+function applyMode(m){displayMode=m;localStorage.setItem('displayMode',m);content.className='content'+(m!=='default'?` mode-${m}`:'');document.querySelectorAll('.mode-pip').forEach(p=>p.classList.toggle('on',p.dataset.mode===m))}
+document.querySelectorAll('.mode-pip').forEach(p=>p.addEventListener('click',()=>applyMode(p.dataset.mode)));
+applyMode(displayMode);
+
+// ===== Font size =====
+document.querySelectorAll('.size-pip').forEach(p=>p.addEventListener('click',()=>{document.querySelectorAll('.size-pip').forEach(x=>x.classList.remove('on'));p.classList.add('on');document.documentElement.style.setProperty('--zh-size',p.dataset.size+'px')}));
+
+// ===== Settings panel =====
+const settingsPanel=document.getElementById('settingsPanel');
+const settingsOverlay=document.getElementById('settingsOverlay');
+function openSettings(){settingsPanel.classList.add('show');settingsOverlay.classList.add('show')}
+function closeSettings(){settingsPanel.classList.remove('show');settingsOverlay.classList.remove('show')}
+document.getElementById('settingsToggle').addEventListener('click',openSettings);
+document.getElementById('settingsClose').addEventListener('click',closeSettings);
+settingsOverlay.addEventListener('click',closeSettings);
+
+// Theme in settings
+document.querySelectorAll('#themeToggle .theme-opt').forEach(opt=>{
+  opt.addEventListener('click',()=>{ThemeManager.set(opt.dataset.theme);document.querySelectorAll('#themeToggle .theme-opt').forEach(o=>o.classList.toggle('on',o.dataset.theme===ThemeManager.current))});
+});
+// Init theme buttons
+document.querySelectorAll('#themeToggle .theme-opt').forEach(o=>o.classList.toggle('on',o.dataset.theme===(localStorage.getItem('theme')||'system')));
+
+// Mic enumeration
+async function populateMics(){try{const devs=await navigator.mediaDevices.enumerateDevices();const mics=devs.filter(d=>d.kind==='audioinput');const sel=document.getElementById('micSelect');sel.innerHTML='<option value="">默认设备</option>';mics.forEach(m=>{const o=document.createElement('option');o.value=m.deviceId;o.textContent=m.label||`麦克风 ${m.deviceId.slice(0,6)}`;sel.appendChild(o)});const saved=localStorage.getItem('micId');if(saved){if(mics.some(m=>m.deviceId===saved))sel.value=saved;else{localStorage.removeItem('micId');sel.value=''}}}catch{}}
+document.getElementById('micSelect').addEventListener('change',e=>localStorage.setItem('micId',e.target.value));
+document.getElementById('audioSourceSelect').addEventListener('change',e=>localStorage.setItem('audioSource',e.target.value));
+// Restore saved
+const _savedSrc=localStorage.getItem('audioSource');if(_savedSrc)document.getElementById('audioSourceSelect').value=_savedSrc;
+populateMics();
+navigator.mediaDevices?.addEventListener('devicechange',populateMics);
+
+// Hotwords (persistent file-based)
+const hotwordsArea=document.getElementById('hotwordsArea');
+const hotwordFileSelect=document.getElementById('hotwordFileSelect');
+let currentHwFile='';
+
+async function loadHotwordList(){
+  try{
+    const resp=await fetch('/api/hotwords/list');
+    const{files}=await resp.json();
+    hotwordFileSelect.innerHTML='<option value="">-- 选择词表 --</option>';
+    files.forEach(f=>{const o=document.createElement('option');o.value=f.filename;o.textContent=`${f.name} (${Math.round(f.size/1024*10)/10}KB)`;hotwordFileSelect.appendChild(o)});
+    // Restore last selected
+    const last=localStorage.getItem('hwFile');
+    if(last){hotwordFileSelect.value=last;if(last)loadHotwordFile(last)}
+  }catch{}
+}
+
+async function loadHotwordFile(filename){
+  if(!filename){hotwordsArea.value='';currentHwFile='';localStorage.removeItem('hwFile');return}
+  try{
+    const resp=await fetch(`/api/hotwords/${encodeURIComponent(filename)}`);
+    const data=await resp.json();
+    hotwordsArea.value=data.content||'';
+    currentHwFile=filename;
+    localStorage.setItem('hwFile',filename);
+    localStorage.setItem('hotwords',data.content||'');
+  }catch{showToast('加载失败')}
+}
+
+hotwordFileSelect.addEventListener('change',()=>loadHotwordFile(hotwordFileSelect.value));
+document.getElementById('hwRefresh').addEventListener('click',loadHotwordList);
+
+// Save current content to file
+document.getElementById('hwSaveBtn').addEventListener('click',async()=>{
+  const content=hotwordsArea.value;
+  let name=currentHwFile?currentHwFile.replace('.txt',''):prompt('请输入词表名称：','术语表');
+  if(!name)return;
+  try{
+    const resp=await fetch('/api/hotwords/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,content})});
+    const data=await resp.json();
+    if(data.ok){showToast('已保存: '+data.filename);currentHwFile=data.filename;localStorage.setItem('hwFile',data.filename);localStorage.setItem('hotwords',content);loadHotwordList()}
+  }catch{showToast('保存失败')}
+});
+
+// New blank
+document.getElementById('hwNewBtn').addEventListener('click',()=>{
+  const name=prompt('新词表名称：','');
+  if(!name)return;
+  hotwordsArea.value='';currentHwFile='';
+  hotwordFileSelect.value='';
+  document.getElementById('hwSaveBtn').click();
+});
+
+// Delete
+document.getElementById('hwDeleteBtn').addEventListener('click',async()=>{
+  if(!currentHwFile)return showToast('未选择词表');
+  if(!confirm(`确定删除「${currentHwFile}」?`))return;
+  await fetch(`/api/hotwords/${encodeURIComponent(currentHwFile)}`,{method:'DELETE'});
+  hotwordsArea.value='';currentHwFile='';localStorage.removeItem('hwFile');localStorage.setItem('hotwords','');
+  loadHotwordList();showToast('已删除');
+});
+
+// Import file
+const hwFileInput=document.getElementById('hwFileInput');
+document.getElementById('hwImportBtn').addEventListener('click',()=>hwFileInput.click());
+hwFileInput.addEventListener('change',async()=>{
+  const file=hwFileInput.files[0];if(!file)return;
+  hwFileInput.value='';
+  const formData=new FormData();formData.append('file',file);
+  try{
+    const resp=await fetch('/api/hotwords/upload',{method:'POST',body:formData});
+    const data=await resp.json();
+    if(data.ok){showToast('已导入: '+data.filename);hotwordsArea.value=data.content;currentHwFile=data.filename;localStorage.setItem('hwFile',data.filename);localStorage.setItem('hotwords',data.content);loadHotwordList()}
+  }catch{showToast('导入失败')}
+});
+
+// Also save to localStorage on manual edit (for use without saving to file)
+hotwordsArea.addEventListener('input',()=>localStorage.setItem('hotwords',hotwordsArea.value));
+
+loadHotwordList();
+
+// WS URL
+const wsUrlInput=document.getElementById('wsUrlInput');
+wsUrlInput.value=localStorage.getItem('wsUrl')||'';
+wsUrlInput.addEventListener('change',()=>localStorage.setItem('wsUrl',wsUrlInput.value));
+
+// ===== Translation frequency / sentence-length settings =====
+const TRANS_KEY='transSettings';
+const TRANS_DEFAULTS={maxWords:25,progThreshold:12,progInterval:2,progExtra:4};
+function loadTransSettings(){try{return Object.assign({},TRANS_DEFAULTS,JSON.parse(localStorage.getItem(TRANS_KEY)||'{}'))}catch{return Object.assign({},TRANS_DEFAULTS)}}
+function saveTransSettings(s){localStorage.setItem(TRANS_KEY,JSON.stringify(s))}
+function readTransSettings(){
+  return{
+    max_sentence_words:Math.max(0,Math.floor(+document.getElementById('setMaxWords').value||0)),
+    progressive_threshold:Math.max(0,Math.floor(+document.getElementById('setProgThreshold').value||0)),
+    progressive_interval:Math.max(0.5,+document.getElementById('setProgInterval').value||0.5),
+    progressive_extra_words:Math.max(0,Math.floor(+document.getElementById('setProgExtra').value||0)),
+  };
+}
+function applyTransSettingsToUI(){
+  const s=loadTransSettings();
+  document.getElementById('setMaxWords').value=s.maxWords;
+  document.getElementById('setProgThreshold').value=s.progThreshold;
+  document.getElementById('setProgInterval').value=s.progInterval;
+  document.getElementById('setProgExtra').value=s.progExtra;
+}
+function sendTransSettings(){
+  const s=readTransSettings();saveTransSettings(s);
+  if(ws&&ws.readyState===WebSocket.OPEN){
+    ws.send(JSON.stringify({type:'settings',data:s}));
+    return true;
+  }
+  return false;
+}
+document.getElementById('transSaveBtn').addEventListener('click',()=>{
+  showToast(sendTransSettings()?'✅ 已保存并生效':'已保存（录音未开始，点击录音后自动生效）');
+});
+applyTransSettingsToUI();
+
+// ===== Copy / Clear / Stats =====
+document.getElementById('copyBtn').addEventListener('click',async()=>{
+  const text=[...sentences.values()].map(s=>s.zh||'').filter(Boolean).join('\n');
+  if(!text)return showToast('暂无内容');
+  try{await navigator.clipboard.writeText(text);showToast('已复制中文')}catch{showToast('复制失败')}
+});
+document.getElementById('clearBtn').addEventListener('click',()=>{
+  if(!sentences.size)return;if(!confirm('清空当前记录?'))return;
+  sentences.clear();lastRenderSig='';render();showToast('已清空');
+});
+
+// Stats
+let statsData={audio_seconds:0,translate_count:0,asr_cost:0,translate_cost:0,total_cost:0};
+const statsModal=document.getElementById('statsModal');
+document.getElementById('statsBtn').addEventListener('click',()=>{
+  document.getElementById('sAudio').textContent=statsData.audio_seconds+' 秒';
+  document.getElementById('sTrans').textContent=statsData.translate_count+' 句';
+  document.getElementById('sAsr').textContent='¥'+(statsData.asr_cost||0).toFixed(4);
+  document.getElementById('sTr').textContent='¥'+(statsData.translate_cost||0).toFixed(4);
+  document.getElementById('sTotal').textContent='¥'+(statsData.total_cost||0).toFixed(4);
+  statsModal.style.display='block';
+});
+document.getElementById('statsClose').addEventListener('click',()=>statsModal.style.display='none');
+
+// ===== Auto-reconnect =====
+let reconnectAttempts=0;
+function scheduleReconnect(){
+  reconnectAttempts++;
+  const delay=Math.min(1000*Math.pow(2,reconnectAttempts-1),30000);
+  setStatus(`重连中 (${reconnectAttempts})…`,'error');
+  setTimeout(()=>{
+    if(!recording||intentionalStop)return;
+    if(ws){try{ws.close()}catch{};ws=null}
+    ws=new WebSocket(getWsUrl());ws.binaryType='arraybuffer';
+    ws.onopen=()=>{setStatus('录音中','live');reconnectAttempts=0};
+    ws.onclose=()=>{if(!intentionalStop&&recording)scheduleReconnect()};
+    ws.onerror=()=>{if(!intentionalStop&&recording)scheduleReconnect()};
+    ws.onmessage=ev=>handleMessage(JSON.parse(ev.data));
+  },delay);
+}
+
+// ===== Wake Lock =====
+let wakeLock=null;
+async function requestWakeLock(){try{if('wakeLock' in navigator)wakeLock=await navigator.wakeLock.request('screen')}catch{}}
+function releaseWakeLock(){if(wakeLock){wakeLock.release();wakeLock=null}}
+
+// ===== Silence detection =====
+let silenceTimer=null,isSilent=false;
+function checkSilence(rms){
+  if(rms<0.005){if(!silenceTimer)silenceTimer=setTimeout(()=>{isSilent=true},3000)}
+  else{clearTimeout(silenceTimer);silenceTimer=null;isSilent=false}
+}
+
+// ===== FAB drag =====
+(function(){const fab=document.getElementById('fabChat');let drag=false,moved=false,sx,sy,fx,fy;const saved=JSON.parse(localStorage.getItem('fabPos')||'null');if(saved){fab.style.right='auto';fab.style.bottom='auto';fab.style.left=saved.x+'px';fab.style.top=saved.y+'px'}
+function onS(e){drag=true;moved=false;fab.classList.add('dragging');const t=e.touches?e.touches[0]:e;sx=t.clientX;sy=t.clientY;const r=fab.getBoundingClientRect();fx=r.left;fy=r.top;e.preventDefault()}
+function onM(e){if(!drag)return;const t=e.touches?e.touches[0]:e;const dx=t.clientX-sx,dy=t.clientY-sy;if(Math.abs(dx)>3||Math.abs(dy)>3)moved=true;let nx=Math.max(0,Math.min(innerWidth-48,fx+dx)),ny=Math.max(0,Math.min(innerHeight-48,fy+dy));fab.style.right='auto';fab.style.bottom='auto';fab.style.left=nx+'px';fab.style.top=ny+'px'}
+function onE(){if(!drag)return;drag=false;fab.classList.remove('dragging');localStorage.setItem('fabPos',JSON.stringify({x:fab.getBoundingClientRect().left,y:fab.getBoundingClientRect().top}));if(!moved)window.open('/chat','_blank')}
+fab.addEventListener('mousedown',onS);document.addEventListener('mousemove',onM);document.addEventListener('mouseup',onE);fab.addEventListener('touchstart',onS,{passive:false});document.addEventListener('touchmove',onM,{passive:false});document.addEventListener('touchend',onE)})();
+
+// ===== PiP (Picture-in-Picture) =====
+let pipWindow=null;
+const pipBtn=document.getElementById('pipBtn');
+
+function updatePip(){
+  if(!pipWindow)return;
+  const container=pipWindow.document.getElementById('pc');
+  if(!container)return;
+  const prevScrollTop=container.scrollTop;
+  const nearBottom=container.scrollHeight-container.scrollTop-container.clientHeight<40;
+  const lines=[...sentences.values()];
+  const jump=pipWindow.document.getElementById('pipJump');
+  if(!lines.length){
+    container.innerHTML='<div class="pip-empty">🎤 等待语音…</div>';
+    if(jump)jump.style.display='none';
+    return;
+  }
+  const view=lines.slice(-100); // 限制 DOM 规模，保留历史可读
+  container.innerHTML=view.map((s,i)=>{
+    const isLast=i===view.length-1;
+    const pending=!s.zh;
+    return `<div class="pip-line${isLast?' last':''}"><div class="en">${esc(s.en||'')}</div><div class="zh${pending?' pending':''}">${esc(s.zh||'正在翻译')}${pending?'…':''}</div></div>`;
+  }).join('');
+  // 在底部则跟随最新；用户上滑浏览历史时保持原位置不打扰
+  if(nearBottom)container.scrollTop=container.scrollHeight;
+  else container.scrollTop=prevScrollTop;
+  if(jump)jump.style.display=nearBottom?'none':'flex';
+}
+
+async function openPip(){
+  if(!('documentPictureInPicture' in window)){showToast('浏览器不支持浮窗，需 Chrome 116+');return}
+  if(pipWindow){pipWindow.focus();return}
+  try{
+    pipWindow=await documentPictureInPicture.requestWindow({width:460,height:300});
+    const dark=document.documentElement.getAttribute('data-theme')==='dark';
+    pipWindow.document.head.innerHTML=`<meta charset="UTF-8"><style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      html,body{height:100%}
+      body{position:relative;min-width:300px;padding:12px 14px;background:${dark?'rgba(25,25,25,.95)':'rgba(255,255,255,.96)'};backdrop-filter:blur(20px);color:${dark?'#e8e8e6':'#1a1a1a'};font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;display:flex;flex-direction:column;overflow:hidden}
+      .pip-ctrl{flex-shrink:0;display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid ${dark?'#333':'#e9e9e7'}}
+      .pip-btn{height:26px;padding:0 12px;border-radius:13px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s}
+      .pip-rec{background:${dark?'#e8e8e6':'#37352f'};color:${dark?'#191919':'#fff'}}
+      .pip-rec.on{background:#e03e3e;color:#fff}
+      .pip-pause{background:${dark?'#333':'#efeeec'};color:${dark?'#9b9a97':'#787774'}}
+      .pip-pause.on{background:#0f7b3e;color:#fff}
+      .pip-status{flex:1;font-size:11px;color:${dark?'#6b6b6b':'#9b9a97'};text-align:right}
+      .pip-content{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+      .pip-content::-webkit-scrollbar{width:5px}
+      .pip-content::-webkit-scrollbar-thumb{background:rgba(128,128,128,.4);border-radius:5px}
+      .pip-line{padding:5px 0;border-bottom:1px solid rgba(128,128,128,.1)}
+      .pip-line:last-child{border-bottom:none}
+      .pip-line .en{font-size:11px;opacity:.55;margin-bottom:2px}
+      .pip-line .zh{font-size:13px;font-weight:500}
+      .pip-line .zh.pending{opacity:.45}
+      .pip-line.last .zh{font-size:19px;font-weight:650}
+      .pip-empty{text-align:center;opacity:.4;font-size:15px;padding:24px 0}
+      .pip-jump{position:absolute;right:12px;bottom:12px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(128,128,128,.28);color:inherit;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5}
+      .pip-jump:hover{background:rgba(128,128,128,.45)}
+    </style>`;
+    pipWindow.document.body.innerHTML=`<div class="pip-ctrl"><button class="pip-btn pip-rec" id="pipRec">● 录制</button><button class="pip-btn pip-pause" id="pipPause" style="display:none">⏸</button><span class="pip-status" id="pipStatus">未连接</span></div><div class="pip-content" id="pc"></div><button class="pip-jump" id="pipJump" style="display:none" title="回到最新">↓</button>`;
+
+    // Bind PiP controls to main page functions
+    const pipRecBtn=pipWindow.document.getElementById('pipRec');
+    const pipPauseBtn=pipWindow.document.getElementById('pipPause');
+    const pipStatusEl=pipWindow.document.getElementById('pipStatus');
+    const pipContent=pipWindow.document.getElementById('pc');
+    const pipJump=pipWindow.document.getElementById('pipJump');
+    // 点击「↓」回到最新
+    pipJump.addEventListener('click',()=>{pipContent.scrollTop=pipContent.scrollHeight});
+    // 用户上滑查看历史时显示「↓」，回到底部后隐藏
+    pipContent.addEventListener('scroll',()=>{
+      const nearBottom=pipContent.scrollHeight-pipContent.scrollTop-pipContent.clientHeight<40;
+      pipJump.style.display=nearBottom?'none':'flex';
+    });
+
+    pipRecBtn.addEventListener('click',()=>{
+      if(recording)stop();else start();
+    });
+    pipPauseBtn.addEventListener('click',()=>{
+      pauseBtn.click(); // trigger main pause
+    });
+
+    // Sync state to PiP
+    function syncPipState(){
+      if(!pipWindow)return;
+      pipRecBtn.textContent=recording?'■ 停止':'● 录制';
+      pipRecBtn.classList.toggle('on',recording);
+      pipPauseBtn.style.display=recording?'inline-block':'none';
+      pipPauseBtn.textContent=paused?'▶':'⏸';
+      pipPauseBtn.classList.toggle('on',paused);
+      pipStatusEl.textContent=statusText.textContent;
+    }
+    // Override setStatus to also sync PiP
+    const _origSetStatus=setStatus;
+    setStatus=function(t,cls){_origSetStatus(t,cls);syncPipState()};
+    syncPipState();
+
+    pipWindow.addEventListener('pagehide',()=>{pipWindow=null;pipBtn.classList.remove('active');setStatus=_origSetStatus});
+    pipBtn.classList.add('active');
+    updatePip();
+  }catch(e){console.error(e);showToast('浮窗打开失败')}
+}
+
+pipBtn.addEventListener('click',openPip);
+
+// Hook render to also update PiP
+const _origRender=render;
+render=function(){_origRender();updatePip()};
+
+// ===== Init =====
+WF.init();renderSidebar();setStatus('未连接');
+</script>
+</body>
+</html>
