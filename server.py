@@ -42,7 +42,6 @@ from protocol import make_config, make_stats, make_ready_to_stop
 
 from routes.health import router as health_router
 from routes.models import router as models_router
-from routes.transcriptions import router as transcriptions_router
 
 # Set API key for dashscope
 dashscope.api_key = settings.dashscope_api_key
@@ -65,7 +64,6 @@ app = FastAPI(lifespan=lifespan)
 # Mount routes
 app.include_router(health_router)
 app.include_router(models_router)
-app.include_router(transcriptions_router)
 
 # Downloads directory for saved sessions
 DOWNLOADS_DIR = BASE_DIR / "downloads"

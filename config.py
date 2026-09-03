@@ -43,7 +43,6 @@ class Settings:
     port: int = 8000
     auth_token: str = field(default_factory=lambda: os.getenv("AUTH_TOKEN", ""))  # empty = no auth
     max_connections: int = 10  # max concurrent WebSocket sessions
-    max_upload_mb: int = 10  # max file upload size in MB
 
     # ASR (Aliyun Paraformer)
     dashscope_api_key: str = field(default_factory=lambda: os.getenv("DASHSCOPE_API_KEY", ""))

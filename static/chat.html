@@ -122,11 +122,11 @@ header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; bord
   <div class="upload-progress" id="uploadProgress">⏳ 正在转写音频文件…</div>
 
   <div class="input-area">
-    <input type="file" id="fileInput" style="display:none;" multiple accept=".txt,.srt,.vtt,.json,.wav,.mp3,.flac,.m4a,.ogg,.webm,.opus" />
+    <input type="file" id="fileInput" style="display:none;" multiple accept=".txt,.srt,.vtt,.json" />
     <select id="recordingSelect" class="input-select" title="选择已录制的录音（可选，加载为分析上下文）">
       <option value="">🎙 录音…</option>
     </select>
-    <button class="upload-btn" id="uploadBtn" title="上传本地文件（文本/音频）">
+    <button class="upload-btn" id="uploadBtn" title="上传本地文件（文本/字幕）">
       <svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
     </button>
     <div class="input-wrap">
@@ -211,29 +211,7 @@ fileInput.addEventListener('change', async () => {
       const text = await file.text();
       addUploadedFile(file.name, text);
     } else if (AUDIO_EXTS.includes(ext)) {
-      // Transcribe audio via API
-      uploadProgress.classList.add('show');
-      uploadProgress.textContent = `⏳ 正在转写: ${file.name}…`;
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('response_format', 'verbose_json');
-        formData.append('translate_to_zh', 'true');
-        const resp = await fetch('/v1/audio/transcriptions', { method: 'POST', body: formData });
-        if (!resp.ok) throw new Error(`转写失败 (${resp.status})`);
-        const data = await resp.json();
-        // Format: segments with text + translation
-        let content = '';
-        if (data.segments) {
-          content = data.segments.map(s => `${s.text}\n${s.translation || ''}`).join('\n\n');
-        } else {
-          content = data.text || JSON.stringify(data);
-        }
-        addUploadedFile(file.name, content);
-      } catch (e) {
-        addMessage('system', `❌ ${file.name}: ${e.message}`);
-      }
-      uploadProgress.classList.remove('show');
+      addMessage('system', `❌ ${file.name}: 暂不支持音频文件转写。请先在字幕页导出 .txt/.srt，再以文本形式上传。`);
     } else {
       addMessage('system', `❌ 不支持的文件格式: ${ext}`);
     }

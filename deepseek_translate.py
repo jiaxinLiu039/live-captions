@@ -24,38 +24,6 @@ def _get_headers() -> dict:
     }
 
 
-async def translate(session: aiohttp.ClientSession, text: str) -> str:
-    """Non-streaming translation. Used for file transcription / fallback."""
-    text = (text or "").strip()
-    if not text:
-        return ""
-    if not settings.deepseek_api_key:
-        return "[DEEPSEEK_API_KEY 未设置]"
-
-    payload = {
-        "model": settings.translation_model,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": text},
-        ],
-        "temperature": 0.2,
-        "stream": False,
-        "max_tokens": 512,
-    }
-    try:
-        async with session.post(
-            DEEPSEEK_URL, json=payload, headers=_get_headers(),
-            timeout=aiohttp.ClientTimeout(total=30),
-        ) as resp:
-            if resp.status != 200:
-                body = await resp.text()
-                return f"[翻译失败 {resp.status}: {body[:80]}]"
-            data = await resp.json()
-            return data["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        return f"[翻译异常: {e}]"
-
-
 async def translate_stream(
     session: aiohttp.ClientSession,
     text: str,

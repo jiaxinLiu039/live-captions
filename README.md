@@ -30,7 +30,6 @@
 **如实说明的限制:**
 - **语言方向固定**:只支持英→中。协议里有 `detected_language` 字段,但**没有做语言检测**,中文/其他语种不支持。
 - **鉴权默认关闭**:`AUTH_TOKEN` 为空时 `/ws` 不校验。生产/公网使用前**必须**自行设置。
-- **文件转写接口(`/v1/audio/transcriptions`)是实验性的**:代码路径未经充分测试,可能返回空结果或不工作。依赖它前请先自测。
 - **费用估算偏低**:UI 里的预估只统计定稿翻译,未计入渐进式翻译的额外调用,实际花费会高于显示值。
 - **服务端记录有上限**:单会话超过 2000 行会丢弃最早的记录(前端已渲染的不受影响,但依赖服务端导出时注意)。
 - **并发翻译无上限**:语速很快时可能瞬间产生较多对 DeepSeek 的并发请求。
@@ -66,7 +65,7 @@ python server.py
 | `ASR_COST_PER_SEC` | 语音识别单价(元/秒) | 0.00024 |
 | `TRANSLATE_COST_PER_SENTENCE` | 翻译单价(元/句) | 0.00002 |
 
-其余固定参数(监听地址、端口、最大连接数等)见 [config.py](config.py)。默认 `host=0.0.0.0`、`port=8000`、`max_connections=10`、上传上限 10MB。
+其余固定参数(监听地址、端口、最大连接数等)见 [config.py](config.py)。默认 `host=0.0.0.0`、`port=8000`、`max_connections=10`。
 
 ## 项目结构
 
@@ -78,7 +77,7 @@ translater/
 ├── session.py             # 单连接会话状态(线程安全)
 ├── protocol.py            # WebSocket 消息协议(V1 兼容 + V2)
 ├── deepseek_translate.py  # DeepSeek 流式/非流式翻译,支持术语表
-├── routes/                # /health、/v1/models、/v1/audio/transcriptions(实验性)
+├── routes/                # /health、/v1/models
 ├── static/                # 前端:index.html / chat.html / listen.html / audio-worker.js
 │                          #   (原生 HTML/CSS/JS,无框架、无构建)
 ├── hotwords/              # 术语表 .txt(已被 gitignore)
@@ -100,9 +99,8 @@ WS /ws?mode=full&token=xxx
 |------|------|------|
 | GET | `/health` | 健康检查 |
 | GET | `/v1/models` | 模型列表(OpenAI 兼容) |
-| POST | `/v1/audio/transcriptions` | 上传音频转写+翻译(**实验性,未充分测试**) |
 
-> 该端点与 `/v1/models` 一样**不受 `AUTH_TOKEN` 保护**,且会消耗你的付费额度。局域网/公网暴露前务必自行加反向代理鉴权与限流。
+> `/v1/models` 不受 `AUTH_TOKEN` 保护,仅返回模型名,无副作用。
 
 ## 技术栈
 
