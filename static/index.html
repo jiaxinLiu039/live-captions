@@ -309,7 +309,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","N
   <div class="sp-group">
     <div class="sp-label">长句 & 翻译频率</div>
     <div class="sp-hint" style="margin-bottom:8px">超长句子自动切分；提前翻译控制翻译刷新的频率，点击「保存」后生效</div>
-    <div class="sp-hint" style="margin-bottom:2px">单句最大词数（0=不切分）</div>
+    <div class="sp-hint" style="margin-bottom:2px">长句切分目标词数（优先标点，0=不提前切分）</div>
     <input class="sp-input" id="setMaxWords" type="number" min="0" step="1" style="margin-bottom:8px" />
     <div class="sp-hint" style="margin-bottom:2px">提前翻译触发词数</div>
     <input class="sp-input" id="setProgThreshold" type="number" min="1" step="1" style="margin-bottom:8px" />
@@ -332,6 +332,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","N
 <!-- FAB: AI Chat -->
 <button class="fab-chat" id="fabChat" title="AI 助手"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
 
+<script src="/static/translation-state.js"></script>
 <script>
 // ===== Theme =====
 const ThemeManager={init(){const s=localStorage.getItem('theme')||'system';this.set(s);window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(this.current==='system')this._apply('system')})},set(t){this.current=t;localStorage.setItem('theme',t);this._apply(t)},_apply(t){const dark=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.setAttribute('data-theme',dark?'dark':'light')}};
@@ -341,6 +342,8 @@ ThemeManager.init();
 const DEBUG=new URLSearchParams(location.search).has('debug');
 let ws=null,audioCtx=null,mediaStream=null,workletNode=null;
 let recording=false,paused=false,intentionalStop=false;
+let stopping=false;
+let stopCompletion=null;
 const sentences=new Map();
 let elapsedTimer=null,elapsedStart=0;
 let searchQuery='',lastRenderSig='';
@@ -381,10 +384,10 @@ const WF={canvas:null,ctx:null,bars:[],active:false,animId:null,
 
 // ===== Render =====
 function render(){
-  const ids=[...sentences.keys()];
+  const ids=[...sentences.keys()].filter(id=>{const s=sentences.get(id);return s.en||s.zh||!s.final}).sort((a,b)=>CaptionState.compare(sentences.get(a),sentences.get(b)));
   countLabel.textContent=ids.length+' 句';
   if(!ids.length){content.innerHTML='';content.appendChild(emptyState);lastRenderSig='';return}
-  const sig=ids.map(id=>{const s=sentences.get(id);return`${id}:${s.en}|${s.zh}|${s.final}`}).join(';')+'|q:'+searchQuery;
+  const sig=ids.map(id=>{const s=sentences.get(id);return`${id}:${s.en}|${s.zh}|${s.final}|${s.translationError}`}).join(';')+'|q:'+searchQuery;
   if(sig===lastRenderSig)return;lastRenderSig=sig;
   if(emptyState.parentNode)emptyState.remove();
   content.innerHTML='';
@@ -396,7 +399,8 @@ function render(){
     const bk=bookmarkedIds.has(id);
     div.className='sentence'+(id===lastId&&!s.final?' current':'')+(bk?' bookmarked':'');
     const t=s.start!=null?fmtSec(s.start):'';
-    let enH=esc(s.en||''),zhH=esc(s.zh||'正在翻译');
+    let enH=esc(s.en||''),zhH=esc(s.zh||(s.translationError?'翻译未完成':'正在翻译'));
+    if(s.translationError)zhH+=` <span class="pending">（${esc(s.translationError)}）</span>`;
     if(searchQuery){const re=new RegExp(`(${esc(searchQuery)})`,'gi');enH=enH.replace(re,'<mark class="highlight">$1</mark>');zhH=zhH.replace(re,'<mark class="highlight">$1</mark>')}
     div.innerHTML=`<button class="bookmark-btn">${bk?'★':'☆'}</button>${t?`<span class="s-time">${t}</span>`:''}<div class="s-en">${enH}</div><div class="s-zh${s.zh?'':' pending'}">${zhH}</div>`;
     div.querySelector('.bookmark-btn').addEventListener('click',e=>{e.stopPropagation();if(bookmarkedIds.has(id))bookmarkedIds.delete(id);else bookmarkedIds.add(id);localStorage.setItem('bookmarks',JSON.stringify([...bookmarkedIds]));lastRenderSig='';render()});
@@ -416,10 +420,10 @@ function render(){
 function handleMessage(msg){
   switch(msg.type){
     case'config':if(configReadyResolve){configReadyResolve(msg);configReadyResolve=null}break;
-    case'translation_stream':{const c=sentences.get(msg.line_id)||{en:'',zh:'',final:false};c.zh=msg.accumulated;if(msg.final)c.final=true;sentences.set(msg.line_id,c);render()}break;
-    case'result':{const id=msg.sentence_id??'live';const c=sentences.get(id)||{en:'',zh:'',final:false};if(msg.en!==undefined)c.en=msg.en;if(msg.zh!==undefined)c.zh=msg.zh;if(msg.en_final)c.en_final=true;if(msg.zh_final)c.final=true;sentences.set(id,c);render()}break;
+    case'translation_stream':case'translation_error':{const c=sentences.get(msg.line_id)||{en:'',zh:'',final:false};if(CaptionState.translation(c,msg)){sentences.set(msg.line_id,c);render()}}break;
+    case'result':{const id=msg.sentence_id??'live';const c=sentences.get(id)||{en:'',zh:'',final:false};if(CaptionState.result(c,msg)){sentences.set(id,c);render()}}break;
     case'stats':statsData=msg;break;
-    case'ready_to_stop':setStatus('已完成');break;
+    case'ready_to_stop':setStatus(msg.complete===false?'已停止，部分字幕未完成':'已完成');break;
     case'error':setStatus('错误: '+msg.msg,'error');break;
   }
 }
@@ -428,6 +432,7 @@ function handleMessage(msg){
 function getWsUrl(){const custom=(document.getElementById('wsUrlInput')?.value||'').trim();if(custom)return custom;const p=location.protocol==='https:'?'wss':'ws';return`${p}://${location.host}/ws?mode=full`}
 
 async function start(){
+  if(stopping)return;
   intentionalStop=false;paused=false;
   const cfgReady=new Promise(r=>{configReadyResolve=r});
   try{
@@ -485,9 +490,10 @@ async function start(){
     }
     ws=new WebSocket(getWsUrl());ws.binaryType='arraybuffer';
     ws.onopen=()=>setStatus('等待服务器…');
-    ws.onclose=()=>{if(!intentionalStop&&recording)scheduleReconnect();else setStatus('已断开')};
+    ws.onclose=()=>{if(ws!==captionSocket||stopping)return;if(!intentionalStop&&recording)scheduleReconnect();else setStatus('已断开')};
     ws.onerror=()=>{if(!intentionalStop&&recording)scheduleReconnect();else setStatus('连接错误','error')};
-    ws.onmessage=ev=>handleMessage(JSON.parse(ev.data));
+    const captionSocket=ws;
+    CaptionState.bindSocket(captionSocket,handleMessage,()=>ws===captionSocket);
     const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('服务器超时')),5000));
     await Promise.race([cfgReady,timeout]);
     setStatus('录音中','live');startElapsed();
@@ -510,7 +516,12 @@ async function start(){
   }catch(err){console.error(err);setStatus('启动失败','error');showToast(err.message);stop()}
 }
 
-function stop(){
+async function stop(){
+  if(stopping)return stopCompletion;
+  let resolveStop;
+  stopCompletion=new Promise(resolve=>{resolveStop=resolve});
+  stopping=true;toggleBtn.disabled=true;
+  const stoppedSocket=ws;
   intentionalStop=true;recording=false;paused=false;
   btnText.textContent='开始录音';toggleBtn.classList.remove('recording');
   pauseBtn.style.display='none';pauseBtn.classList.remove('paused');pauseBtn.textContent='⏸';
@@ -518,11 +529,17 @@ function stop(){
   if(workletNode){workletNode.disconnect();workletNode=null}
   if(audioCtx){audioCtx.close();audioCtx=null}
   if(mediaStream){if(mediaStream._mixCtx)mediaStream._mixCtx.close();if(mediaStream._extraStreams)mediaStream._extraStreams.forEach(s=>s.getTracks().forEach(t=>t.stop()));mediaStream.getTracks().forEach(t=>t.stop());mediaStream=null}
-  if(ws){try{if(ws.readyState===WebSocket.OPEN)ws.send(new ArrayBuffer(0))}catch{};setTimeout(()=>{if(ws){ws.close();ws=null}},1000)}
-  setStatus('未连接');
-  // Auto-save
-  if(sentences.size>0){saveCurrentSession();mainTitle.textContent=currentSessionId?getSessionTitle(currentSessionId):'已保存'}
-  configReadyResolve=null;
+  setStatus('正在完成最后的翻译…');
+  const result=await CaptionState.drainSocket(stoppedSocket);
+  if(ws===stoppedSocket)ws=null;
+  setStatus(result.complete?'已完成':`已停止：${result.reason}`);
+  // Save after the final subtitle messages have arrived (or the deadline expired).
+  try{
+    if(sentences.size>0){saveCurrentSession();mainTitle.textContent=currentSessionId?getSessionTitle(currentSessionId):'已保存'}
+  }finally{
+    configReadyResolve=null;
+    stopping=false;toggleBtn.disabled=false;resolveStop();stopCompletion=null;
+  }
 }
 
 toggleBtn.addEventListener('click',()=>{if(recording)stop();else start()});
@@ -539,7 +556,7 @@ function getSessionTitle(id){const s=getAllSessions().find(x=>x.id===id);return 
 function saveCurrentSession(){
   if(sentences.size===0)return;
   const list=getAllSessions();
-  const data=[...sentences.entries()].map(([k,v])=>({id:k,en:v.en,zh:v.zh,start:v.start,final:v.final}));
+  const data=[...sentences.entries()].filter(([k,v])=>v.en||v.zh||!v.final).sort((a,b)=>CaptionState.compare(a[1],b[1])).map(([k,v])=>({id:k,en:v.en,zh:v.zh,start:v.start,final:v.final,order:v.order,sessionOrder:v.sessionOrder,translationError:v.translationError||''}));
   const now=new Date();
   const title=`${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')} 录制`;
   if(currentSessionId){
@@ -554,18 +571,21 @@ function saveCurrentSession(){
   renderSidebar();
 }
 
-function loadSession(id){
+async function loadSession(id){
+  if(recording||stopping)await stop();
   const list=getAllSessions();
   const s=list.find(x=>x.id===id);
   if(!s)return;
   sentences.clear();
-  s.data.forEach(d=>sentences.set(d.id,{en:d.en||'',zh:d.zh||'',start:d.start,final:d.final||true}));
+  s.data.forEach(d=>sentences.set(d.id,{en:d.en||'',zh:d.zh||'',start:d.start,final:d.final??true,order:d.order,sessionOrder:d.sessionOrder,translationError:d.translationError||''}));
+  CaptionState.sessionSequence=Math.max(CaptionState.sessionSequence??0,...s.data.map(d=>d.sessionOrder??0));
   currentSessionId=id;
   mainTitle.textContent=s.title;
   lastRenderSig='';render();renderSidebar();
 }
 
-function deleteSession(id){
+async function deleteSession(id){
+  if(currentSessionId===id&&(recording||stopping))await stop();
   let list=getAllSessions();
   list=list.filter(x=>x.id!==id);
   saveSessions(list);
@@ -585,8 +605,8 @@ function renameSession(id){
   renderSidebar();
 }
 
-function newSession(){
-  if(recording)stop();
+async function newSession(){
+  if(recording||stopping)await stop();
   sentences.clear();currentSessionId=null;
   mainTitle.textContent='新录制';lastRenderSig='';render();renderSidebar();
 }
@@ -762,7 +782,7 @@ wsUrlInput.addEventListener('change',()=>localStorage.setItem('wsUrl',wsUrlInput
 const TRANS_KEY='transSettings';
 const TRANS_DEFAULTS={maxWords:25,progThreshold:12,progInterval:2,progExtra:4};
 function loadTransSettings(){try{return Object.assign({},TRANS_DEFAULTS,JSON.parse(localStorage.getItem(TRANS_KEY)||'{}'))}catch{return Object.assign({},TRANS_DEFAULTS)}}
-function saveTransSettings(s){localStorage.setItem(TRANS_KEY,JSON.stringify(s))}
+function saveTransSettings(s){localStorage.setItem(TRANS_KEY,JSON.stringify({maxWords:s.max_sentence_words,progThreshold:s.progressive_threshold,progInterval:s.progressive_interval,progExtra:s.progressive_extra_words}))}
 function readTransSettings(){
   return{
     max_sentence_words:Math.max(0,Math.floor(+document.getElementById('setMaxWords').value||0)),
@@ -826,9 +846,10 @@ function scheduleReconnect(){
     if(ws){try{ws.close()}catch{};ws=null}
     ws=new WebSocket(getWsUrl());ws.binaryType='arraybuffer';
     ws.onopen=()=>{setStatus('录音中','live');reconnectAttempts=0};
-    ws.onclose=()=>{if(!intentionalStop&&recording)scheduleReconnect()};
+    ws.onclose=()=>{if(ws===captionSocket&&!intentionalStop&&recording)scheduleReconnect()};
     ws.onerror=()=>{if(!intentionalStop&&recording)scheduleReconnect()};
-    ws.onmessage=ev=>handleMessage(JSON.parse(ev.data));
+    const captionSocket=ws;
+    CaptionState.bindSocket(captionSocket,handleMessage,()=>ws===captionSocket);
   },delay);
 }
 

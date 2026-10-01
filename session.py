@@ -18,6 +18,11 @@ class SessionLine:
     translation: str | None = None
     status: str = "partial"  # "partial" | "final"
     detected_language: str = "en"
+    order: int = 0
+    segment_index: int = 0
+    translation_version: int = 0
+    translation_final: bool = False
+    translation_state: str = "idle"
 
 
 class Session:
@@ -41,8 +46,8 @@ class Session:
 
         # Translation state
         self.translated: set = set()
-        self.last_translations: list[str] = []
-        self.translation_context_window: int = 3
+        self.translation_context_window = settings.translation_context_window
+        self._line_order = 0
 
         # Stats
         self.audio_bytes: int = 0
@@ -94,25 +99,32 @@ class Session:
         """Get existing line or create a new one for this sentence_id."""
         with self._lock:
             if sentence_id not in self.lines:
-                self.lines[sentence_id] = SessionLine(id=sentence_id)
+                self._line_order += 1
+                self.lines[sentence_id] = SessionLine(id=sentence_id, order=self._line_order)
                 self._evict_if_needed()
             return self.lines[sentence_id]
 
     def _evict_if_needed(self):
         """Remove oldest lines if exceeding MAX_LINES. Must hold lock."""
         if len(self.lines) > self.MAX_LINES:
-            keys = sorted(self.lines.keys())
+            keys = sorted(self.lines, key=lambda key: (self.lines[key].order, self.lines[key].segment_index))
             to_remove = keys[:len(self.lines) - self.MAX_LINES]
             for k in to_remove:
                 del self.lines[k]
 
-    def update_line_text(self, sentence_id: int, text: str, is_final: bool, start_time: float | None = None):
+    def update_line_text(self, sentence_id: int, text: str, is_final: bool,
+                         start_time: float | None = None, source_order: int | None = None,
+                         segment_index: int = 0):
         """Update a line's English text from ASR."""
         line = self.get_or_create_line(sentence_id)
         with self._lock:
+            if line.text != text:
+                line.translation_final = False
             line.text = text
-            if is_final:
-                line.status = "final"
+            if source_order is not None:
+                line.order = source_order
+                line.segment_index = segment_index
+            line.status = "final" if is_final else "partial"
             if start_time is not None:
                 line.start = start_time
         return line
@@ -126,26 +138,56 @@ class Session:
             self.translate_count += 1
             return True
 
-    def update_line_translation(self, sentence_id: int, translation: str, is_final: bool = False):
-        """Update a line's Chinese translation."""
+    def begin_translation(self, sentence_id: int, version: int):
         line = self.get_or_create_line(sentence_id)
         with self._lock:
-            line.translation = translation
-            if is_final:
-                self.last_translations.append(translation)
-                if len(self.last_translations) > self.translation_context_window:
-                    self.last_translations = self.last_translations[-self.translation_context_window:]
+            line.translation_version = version
+            line.translation_final = False
+            line.translation_state = "pending"
 
-    def get_translation_context(self) -> str | None:
-        """Get last translation for context-aware translation."""
+    def update_line_translation(self, sentence_id: int, translation: str,
+                                is_final: bool = False, version: int | None = None,
+                                state: str = "complete") -> bool:
+        """Update a line's Chinese translation."""
+        if version is None:
+            self.get_or_create_line(sentence_id)
         with self._lock:
-            return self.last_translations[-1] if self.last_translations else None
+            line = self.lines.get(sentence_id)
+            if line is None:
+                return False
+            if version is not None and version != line.translation_version:
+                return False
+            line.translation = translation
+            line.translation_final = is_final and state == "complete"
+            line.translation_state = state
+            return True
+
+    def get_translation_context(self, sentence_id: int) -> list[dict]:
+        """Snapshot successful preceding bilingual lines in source order."""
+        with self._lock:
+            current = self.lines.get(sentence_id)
+            if current is None or self.translation_context_window <= 0:
+                return []
+            preceding = sorted((line for line in self.lines.values()
+                                if (line.order, line.segment_index) < (current.order, current.segment_index)
+                                and line.translation_final
+                                and line.status == "final" and line.text and line.translation),
+                               key=lambda line: (line.order, line.segment_index))
+            budget = settings.translation_context_chars
+            history = []
+            for line in reversed(preceding[-self.translation_context_window:]):
+                size = len(line.text) + len(line.translation)
+                if size > budget:
+                    break
+                history.append({"en": line.text, "zh": line.translation})
+                budget -= size
+            return list(reversed(history))
 
     def get_all_lines(self) -> list[dict]:
         """Serialize all lines for full-mode transcript message."""
         with self._lock:
             result = []
-            for sid in sorted(self.lines.keys()):
+            for sid in sorted(self.lines, key=lambda key: (self.lines[key].order, self.lines[key].segment_index)):
                 line = self.lines[sid]
                 result.append({
                     "id": line.id,
@@ -154,6 +196,10 @@ class Session:
                     "end": line.end,
                     "translation": line.translation,
                     "status": line.status,
+                    "order": [line.order, line.segment_index],
+                    "translation_version": line.translation_version,
+                    "translation_final": line.translation_final,
+                    "translation_state": line.translation_state,
                     "detected_language": line.detected_language,
                 })
             return result

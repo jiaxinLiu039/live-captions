@@ -53,11 +53,15 @@ class Settings:
     # Translation (DeepSeek)
     deepseek_api_key: str = field(default_factory=lambda: os.getenv("DEEPSEEK_API_KEY", ""))
     translation_model: str = "deepseek-chat"
-    translation_context_window: int = 3  # how many recent translations for context
+    translation_context_window: int = field(default_factory=lambda: max(0, _env_int("TRANSLATION_CONTEXT_WINDOW", 3)))
+    translation_context_chars: int = field(default_factory=lambda: max(0, _env_int("TRANSLATION_CONTEXT_CHARS", 3000)))
+    translation_drain_timeout: float = field(default_factory=lambda: max(0.5, _env_float("TRANSLATION_DRAIN_TIMEOUT", 10.0)))
 
     # Sentence length cap: live sentences longer than this many words are split
     # into chunks (each finalized + translated once). Set to 0 to disable.
     max_sentence_words: int = field(default_factory=lambda: _env_int("MAX_SENTENCE_WORDS", 25))
+    sentence_split_grace_words: int = field(default_factory=lambda: max(0, _env_int("SENTENCE_SPLIT_GRACE_WORDS", 10)))
+    sentence_split_wait: float = field(default_factory=lambda: max(0.5, _env_float("SENTENCE_SPLIT_WAIT", 3.0)))
 
     # Progressive translation tuning — how often a still-growing partial sentence
     # gets an early translation (adjustable from the UI settings panel)

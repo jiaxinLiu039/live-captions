@@ -153,6 +153,7 @@ header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; bord
   </div>
 </div>
 
+<script src="/static/translation-state.js"></script>
 <script>
 // Theme
 let darkMode = localStorage.getItem('theme') === 'dark' || (localStorage.getItem('theme') === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -179,6 +180,7 @@ let lines = []; // {id, en, zh, start, end, final}
 let ws = null;
 let audioCtx = null, sourceNode = null, workletNode = null;
 let recognizing = false;
+let stopping = false;
 let currentLineIdx = -1;
 
 // File import
@@ -216,7 +218,7 @@ startBtn.addEventListener('click', () => {
 });
 
 async function startRecognition() {
-  if (!videoPlayer.src) return;
+  if (!videoPlayer.src || stopping) return;
 
   // Create AudioContext and capture video audio
   audioCtx = new AudioContext({ sampleRate: 16000 });
@@ -240,7 +242,8 @@ async function startRecognition() {
     if (hw) ws.send(JSON.stringify({ type: 'hotwords', data: hw }));
   };
   ws.onclose = () => { if (recognizing) { statusText.textContent = '连接断开'; } };
-  ws.onmessage = (ev) => handleMessage(JSON.parse(ev.data));
+  const captionSocket = ws;
+  CaptionState.bindSocket(captionSocket, handleMessage, () => ws === captionSocket);
 
   workletNode.port.onmessage = (e) => {
     if (e.data.type === 'pcm' && ws && ws.readyState === WebSocket.OPEN) {
@@ -254,15 +257,23 @@ async function startRecognition() {
   videoPlayer.play();
 }
 
-function stopRecognition() {
+async function stopRecognition() {
+  if (stopping) return;
+  stopping = true;
+  startBtn.disabled = true;
+  const stoppedSocket = ws;
   recognizing = false;
   startBtn.textContent = '▶ 开始识别';
   startBtn.classList.remove('recording');
   if (workletNode) { workletNode.disconnect(); workletNode = null; }
   if (sourceNode) { sourceNode.disconnect(); sourceNode = null; }
   if (audioCtx) { audioCtx.close(); audioCtx = null; }
-  if (ws) { try { ws.send(new ArrayBuffer(0)); } catch {} ws.close(); ws = null; }
-  statusText.textContent = `已停止 · ${lines.length} 句`;
+  statusText.textContent = '正在完成最后的翻译…';
+  const result = await CaptionState.drainSocket(stoppedSocket);
+  if (ws === stoppedSocket) ws = null;
+  statusText.textContent = `已停止 · ${lines.length} 句${result.complete ? '' : ' · ' + result.reason}`;
+  stopping = false;
+  startBtn.disabled = false;
 }
 
 // Handle server messages
@@ -275,31 +286,34 @@ function handleMessage(msg) {
       line = { id, en: '', zh: '', start: videoPlayer.currentTime, end: null, final: false };
       lines.push(line);
     }
-    if (msg.en !== undefined) line.en = msg.en;
-    if (msg.en_final) { line.final = true; line.end = videoPlayer.currentTime; }
+    if (!CaptionState.result(line, msg)) return;
+    lines.sort((a,b) => CaptionState.compare(a,b));
+    if (msg.en_final) line.end = videoPlayer.currentTime;
     renderTranscript();
     updateSubtitle();
   }
-  if (msg.type === 'translation_stream') {
+  if (msg.type === 'translation_stream' || msg.type === 'translation_error') {
     const line = lines.find(l => l.id === msg.line_id);
-    if (line) {
-      line.zh = msg.accumulated;
+    if (line && CaptionState.translation(line, msg)) {
+      if (msg.type === 'translation_error') statusText.textContent = '部分字幕翻译失败：' + msg.msg;
       renderTranscript();
       updateSubtitle();
     }
   }
+  if (msg.type === 'error') statusText.textContent = msg.msg;
 }
 
 // Render transcript list
 function renderTranscript() {
   if (lines.length === 0) return;
   if (transcriptEmpty.parentNode) transcriptEmpty.remove();
-  lineCount.textContent = `${lines.length} 句`;
+  lineCount.textContent = `${lines.filter(line => line.en || line.zh || !line.final).length} 句`;
 
   transcriptPanel.innerHTML = '';
   const mode = subtitleMode.value;
 
   lines.forEach((line, i) => {
+    if (!line.en && !line.zh && line.final) return;
     const div = document.createElement('div');
     div.className = 'line-item' + (i === currentLineIdx ? ' active' : '');
     div.dataset.idx = i;
@@ -313,6 +327,7 @@ function renderTranscript() {
     } else if (mode === 'en-blur-zh') {
       html += `<div class="line-zh blurred" data-text="${escapeHtml(line.zh || '翻译中…')}">${escapeHtml(line.zh || '翻译中…')}</div>`;
     }
+    if (line.translationError) html += `<div class="line-zh">翻译未完成：${escapeHtml(line.translationError)}</div>`;
 
     div.innerHTML = html;
 

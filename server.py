@@ -306,12 +306,14 @@ async def ws_endpoint(websocket: WebSocket):
 
     # Stats push task
     stats_task = None
+    end_of_audio = False
+    send_lock = asyncio.Lock()
 
     async def push_stats():
         while not session.closed:
             await asyncio.sleep(settings.stats_interval)
             try:
-                await websocket.send_json(
+                await ws_send_json(
                     make_stats(
                         audio_seconds=session.audio_seconds,
                         translate_count=session.translate_count,
@@ -327,7 +329,9 @@ async def ws_endpoint(websocket: WebSocket):
         """Wrapper for sending JSON that respects session.closed."""
         if session.closed:
             return
-        await websocket.send_json(payload)
+        async with send_lock:
+            if not session.closed:
+                await websocket.send_json(payload)
 
     async with aiohttp.ClientSession() as http:
         bridge = ASRBridge(session, ws_send_json, loop, http)
@@ -341,7 +345,8 @@ async def ws_endpoint(websocket: WebSocket):
         recognizer.start()
 
         # Send config message (V2)
-        await websocket.send_json(make_config(session.session_id, mode))
+        await ws_send_json(make_config(session.session_id, mode,
+                                       int((settings.translation_drain_timeout + 7.0) * 1000)))
 
         stats_task = asyncio.ensure_future(push_stats())
 
@@ -353,6 +358,7 @@ async def ws_endpoint(websocket: WebSocket):
                         data = msg["bytes"]
                         # Empty frame = end-of-audio signal
                         if not data:
+                            end_of_audio = True
                             break
                         session.add_audio_bytes(len(data))
                         recognizer.send_audio_frame(data)
@@ -379,8 +385,6 @@ async def ws_endpoint(websocket: WebSocket):
             except Exception:
                 pass
         finally:
-            active_sessions.discard(session)
-
             if stats_task:
                 stats_task.cancel()
                 try:
@@ -388,23 +392,24 @@ async def ws_endpoint(websocket: WebSocket):
                 except asyncio.CancelledError:
                     pass
 
-            # Stop recognizer BEFORE marking closed — allows final callbacks to arrive
+            # stop() can block waiting for the provider; keep the event loop running
+            # so final SDK callbacks and translation streams can make progress.
+            asr_stopped = True
             try:
-                recognizer.stop()
+                await asyncio.wait_for(asyncio.to_thread(recognizer.stop), timeout=5.0)
             except Exception:
-                pass
-
-            # Brief wait for final ASR callbacks to flush
-            await asyncio.sleep(0.3)
-
-            # Now mark session as closed — no more sends
-            session.closed = True
-
-            # Send ready_to_stop (V2)
+                asr_stopped = False
+            # Run queued callbacks before freezing source sentences in finish().
+            await asyncio.sleep(0)
             try:
-                await websocket.send_json(make_ready_to_stop(session.total_lines))
-            except Exception:
-                pass
+                if end_of_audio and not session.closed:
+                    complete = await bridge.finish()
+                    await ws_send_json(make_ready_to_stop(session.total_lines, complete and asr_stopped))
+                else:
+                    await bridge.close()
+            finally:
+                session.closed = True
+                active_sessions.discard(session)
 
 
 if __name__ == "__main__":

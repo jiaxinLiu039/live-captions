@@ -5,13 +5,14 @@ import uuid
 from typing import Any
 
 
-def make_config(session_id: str, mode: str = "full") -> dict:
+def make_config(session_id: str, mode: str = "full", stop_timeout_ms: int = 17000) -> dict:
     """Config message sent immediately after WebSocket accept."""
     return {
         "type": "config",
         "version": "2.0",
         "session_id": session_id,
         "mode": mode,
+        "stop_timeout_ms": stop_timeout_ms,
         "capabilities": {
             "asr": "paraformer-realtime-v2",
             "translation": "deepseek-chat",
@@ -71,13 +72,16 @@ def make_transcript_diff(
     return payload
 
 
-def make_translation_stream(line_id: Any, accumulated: str, final: bool = False) -> dict:
+def make_translation_stream(line_id: Any, accumulated: str, final: bool = False,
+                            version: int = 0, state: str = "streaming") -> dict:
     """Streaming translation token message."""
     return {
         "type": "translation_stream",
         "line_id": line_id,
         "accumulated": accumulated,
         "final": final,
+        "version": version,
+        "state": state,
     }
 
 
@@ -101,9 +105,9 @@ def make_stats(
     }
 
 
-def make_ready_to_stop(total_lines: int) -> dict:
+def make_ready_to_stop(total_lines: int, complete: bool = True) -> dict:
     """End-of-audio acknowledgment."""
-    return {"type": "ready_to_stop", "total_lines": total_lines}
+    return {"type": "ready_to_stop", "total_lines": total_lines, "complete": complete}
 
 
 # --- V1 compatibility (current frontend) ---
