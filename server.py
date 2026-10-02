@@ -17,6 +17,7 @@ import asyncio
 import os
 import sys
 import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -37,7 +38,9 @@ from dashscope.audio.asr import Recognition
 
 from config import settings, BASE_DIR
 from session import Session
+from course_profile import CourseProfileStore, normalize_course_profile
 from asr_bridge import ASRBridge
+from asr_vocabulary import ASRVocabularyCache
 from protocol import make_config, make_stats, make_ready_to_stop
 
 from routes.health import router as health_router
@@ -64,6 +67,62 @@ app = FastAPI(lifespan=lifespan)
 # Mount routes
 app.include_router(health_router)
 app.include_router(models_router)
+
+# Course profiles live with the project, independently of browser storage.
+course_profiles = CourseProfileStore(BASE_DIR / "course_profiles.json", BASE_DIR / "course_presets.json")
+asr_vocabularies = ASRVocabularyCache(BASE_DIR / "asr_vocabulary_cache.json")
+
+
+def course_response(operation, *args):
+    try:
+        return operation(*args)
+    except KeyError:
+        return JSONResponse({"error": "课程不存在，请重新加载。"}, status_code=404)
+    except (OSError, ValueError):
+        return JSONResponse({"error": "无法读取或保存课程配置，请检查配置文件内容及目录写入权限。"}, status_code=500)
+
+
+@app.get("/api/courses")
+async def get_courses():
+    return course_response(course_profiles.read)
+
+
+@app.put("/api/courses/{profile_id}")
+async def save_course(profile_id: str, request: Request):
+    try:
+        profile = normalize_course_profile(await request.json())
+        CourseProfileStore._validate_id(profile_id)
+        if not profile.get("name"):
+            raise ValueError("请填写课程名称")
+    except ValueError:
+        return JSONResponse({"error": "请填写课程名称并使用有效的课程 ID。"}, status_code=422)
+    return course_response(course_profiles.save, profile_id, profile)
+
+
+@app.post("/api/courses")
+async def create_course(request: Request):
+    return await save_course(str(uuid.uuid4()), request)
+
+
+@app.post("/api/courses/select")
+async def select_course(request: Request):
+    try:
+        data = await request.json()
+        profile_id = data.get("activeId", "") if isinstance(data, dict) else None
+        if profile_id != "":
+            profile_id = CourseProfileStore._validate_id(profile_id)
+    except ValueError:
+        return JSONResponse({"error": "课程 ID 无效。"}, status_code=422)
+    return course_response(course_profiles.select, profile_id)
+
+
+@app.delete("/api/courses/{profile_id}")
+async def delete_course(profile_id: str):
+    try:
+        CourseProfileStore._validate_id(profile_id)
+    except ValueError:
+        return JSONResponse({"error": "课程 ID 无效。"}, status_code=422)
+    return course_response(course_profiles.delete, profile_id)
 
 # Downloads directory for saved sessions
 DOWNLOADS_DIR = BASE_DIR / "downloads"
@@ -300,8 +359,23 @@ async def ws_endpoint(websocket: WebSocket):
     params = websocket.query_params
     mode = params.get("mode", "full")
 
+    # Select the saved course before starting ASR. Frontends send its ID in the
+    # URL, rather than attempting to attach hotwords after the task has begun.
+    try:
+        courses = course_profiles.read()
+        course_id = params.get("course_id", courses["activeId"])
+        course = next((p for p in courses["profiles"] if p["id"] == course_id), {})
+        if course_id and not course:
+            raise ValueError("课程不存在，请重新加载课程配置。")
+    except (OSError, ValueError):
+        await websocket.send_json({"type": "error", "code": "course_config",
+            "msg": "课程配置无法加载，请重新加载或选择通用翻译。", "recoverable": False})
+        await websocket.close(code=1008)
+        return
+
     # Create session
     session = Session(mode=mode)
+    session.course_profile = normalize_course_profile(course)
     active_sessions.add(session)
 
     # Stats push task
@@ -336,21 +410,31 @@ async def ws_endpoint(websocket: WebSocket):
     async with aiohttp.ClientSession() as http:
         bridge = ASRBridge(session, ws_send_json, loop, http)
 
-        recognizer = Recognition(
-            model=settings.asr_model,
-            format=settings.asr_format,
-            sample_rate=settings.asr_sample_rate,
-            callback=bridge,
-        )
-        recognizer.start()
-
-        # Send config message (V2)
-        await ws_send_json(make_config(session.session_id, mode,
-                                       int((settings.translation_drain_timeout + 7.0) * 1000)))
-
-        stats_task = asyncio.ensure_future(push_stats())
-
+        recognizer = None
         try:
+            vocabulary = await asr_vocabularies.prepare(course_id, session.course_profile,
+                settings.asr_model, settings.dashscope_api_key,
+                weight=settings.asr_hotword_weight, timeout=settings.asr_hotword_timeout)
+            parameters = {"language_hints": ["en"]}
+            if vocabulary.vocabulary_id:
+                parameters["vocabulary_id"] = vocabulary.vocabulary_id
+            recognizer = Recognition(
+                model=settings.asr_model,
+                format=settings.asr_format,
+                sample_rate=settings.asr_sample_rate,
+                callback=bridge,
+                **parameters,
+            )
+            await asyncio.to_thread(recognizer.start)
+            await ws_send_json(make_config(session.session_id, mode,
+                int((settings.translation_drain_timeout + 7.0) * 1000), asr={
+                    "language": "en", "course_id": course_id,
+                    "course_name": session.course_profile.get("name", ""),
+                    "hotword_count": vocabulary.count,
+                    "hotwords_enabled": bool(vocabulary.vocabulary_id),
+                    "warning": vocabulary.warning,
+                }))
+            stats_task = asyncio.ensure_future(push_stats())
             while True:
                 msg = await websocket.receive()
                 if msg["type"] == "websocket.receive":
@@ -369,6 +453,8 @@ async def ws_endpoint(websocket: WebSocket):
                             ctrl = json_mod.loads(msg["text"])
                             if ctrl.get("type") == "hotwords":
                                 session.hotwords = ctrl.get("data", "")
+                            elif ctrl.get("type") == "course_profile":
+                                session.course_profile = normalize_course_profile(ctrl.get("data"))
                             elif ctrl.get("type") == "settings":
                                 bridge.update_settings(**(ctrl.get("data") or {}))
                         except Exception:
@@ -396,7 +482,8 @@ async def ws_endpoint(websocket: WebSocket):
             # so final SDK callbacks and translation streams can make progress.
             asr_stopped = True
             try:
-                await asyncio.wait_for(asyncio.to_thread(recognizer.stop), timeout=5.0)
+                if recognizer is not None:
+                    await asyncio.wait_for(asyncio.to_thread(recognizer.stop), timeout=5.0)
             except Exception:
                 asr_stopped = False
             # Run queued callbacks before freezing source sentences in finish().

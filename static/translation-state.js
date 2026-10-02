@@ -43,6 +43,7 @@ globalThis.CaptionState = {
       if (!isCurrent()) return;
       const message = JSON.parse(event.data);
       if (message.type === 'config') {
+        socket.captionConfig = message;
         socket.captionSessionId = message.session_id;
         socket.captionSessionOrder = socket.captionSessionOrder ?? (this.sessionSequence = (this.sessionSequence ?? 0) + 1);
         socket.captionStopTimeout = message.stop_timeout_ms ?? 17000;
@@ -59,6 +60,32 @@ globalThis.CaptionState = {
       }
       handler(message);
     };
+  },
+  waitConfig(socket, timeoutMs = 45000) {
+    if (socket.captionConfig) return Promise.resolve(socket.captionConfig);
+    if (socket.readyState > 1) return Promise.reject(new Error('识别连接已断开'));
+    return new Promise((resolve, reject) => {
+      let timer;
+      const finish = (error, config) => {
+        clearTimeout(timer);
+        socket.removeEventListener('message', message);
+        socket.removeEventListener('close', closed);
+        socket.removeEventListener('error', failed);
+        if (error) reject(error); else resolve(config);
+      };
+      const message = event => {
+        let data;
+        try { data = JSON.parse(event.data); } catch { return; }
+        if (data.type === 'config') finish(null, data);
+        else if (data.type === 'error' && data.recoverable === false) finish(new Error(data.msg || '识别启动失败'));
+      };
+      const closed = () => finish(new Error('识别连接已断开'));
+      const failed = () => finish(new Error('无法连接识别服务'));
+      socket.addEventListener('message', message);
+      socket.addEventListener('close', closed);
+      socket.addEventListener('error', failed);
+      timer = setTimeout(() => finish(new Error('识别启动超时，请重新开始')), timeoutMs);
+    });
   },
   compare(a, b) {
     return (a.sessionOrder ?? 0) - (b.sessionOrder ?? 0)

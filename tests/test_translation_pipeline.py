@@ -308,12 +308,17 @@ class TranslationAPITests(unittest.IsolatedAsyncioTestCase):
         http = self.HTTP(self.Response([('data: ' + data + '\n').encode(), b'data: [DONE]\n']))
         with patch.object(settings, 'deepseek_api_key', 'test-key'):
             tokens = [token async for token in deepseek_translate.translate_stream(
-                http, 'Current', context=[{'en': 'Previous', 'zh': '前文'}], hotwords='term = 术语')]
+                http, 'Current', context=[{'en': 'Previous', 'zh': '前文'}], hotwords='term = 术语',
+                course_profile={'name': '机器学习', 'background': '本科课程',
+                                'topic': '梯度下降', 'glossary': 'gradient descent = 梯度下降'})]
         self.assertEqual(tokens, ['译文'])
         messages = http.payload['messages']
         self.assertEqual([m['role'] for m in messages], ['system', 'user', 'assistant', 'user'])
         self.assertEqual(messages[-1]['content'], 'Current')
         self.assertIn('term = 术语', messages[0]['content'])
+        self.assertIn('机器学习', messages[0]['content'])
+        self.assertIn('gradient descent = 梯度下降', messages[0]['content'])
+        self.assertIn('不得依据课程资料补充原文没有说出的事实', messages[0]['content'])
 
     async def test_missing_key_http_error_and_truncated_stream_raise(self):
         with patch.object(settings, 'deepseek_api_key', ''):
@@ -341,15 +346,18 @@ class WebSocketTests(unittest.TestCase):
             def stop(self):
                 self.callback.loop.call_soon_threadsafe(self.callback._process_event,
                     {'sentence_id': 0, 'text': 'Last sentence.', 'begin_time': 0}, True)
+        courses = []
         async def translate(http, text, **kwargs):
+            courses.append(kwargs.get('course_profile'))
             await asyncio.sleep(0.03)
             yield '最后一句。'
         with patch.object(server, 'Recognition', Recognition), \
              patch.object(asr_bridge, 'translate_stream', translate), \
              patch.object(settings, 'auth_token', ''):
             with TestClient(server.app) as client:
-                with client.websocket_connect('/ws') as ws:
+                with client.websocket_connect('/ws?course_id=') as ws:
                     self.assertEqual(ws.receive_json()['type'], 'config')
+                    ws.send_json({'type': 'course_profile', 'data': {'name': '机器学习', 'topic': '优化'}})
                     ws.send_bytes(b'')
                     messages = []
                     while True:
@@ -360,6 +368,7 @@ class WebSocketTests(unittest.TestCase):
                     self.assertTrue(messages[-1]['complete'])
                     self.assertTrue(any(m.get('final') and m.get('accumulated') == '最后一句。' for m in messages))
             self.assertFalse(server.active_sessions)
+            self.assertEqual(courses, [{'name': '机器学习', 'topic': '优化'}])
 
     def test_provider_failure_is_reported_as_incomplete_stop(self):
         from fastapi.testclient import TestClient
@@ -379,7 +388,7 @@ class WebSocketTests(unittest.TestCase):
              patch.object(asr_bridge, 'translate_stream', fail), \
              patch.object(settings, 'auth_token', ''):
             with TestClient(server.app) as client:
-                with client.websocket_connect('/ws') as ws:
+                with client.websocket_connect('/ws?course_id=') as ws:
                     ws.receive_json()
                     ws.send_bytes(b'')
                     messages = []

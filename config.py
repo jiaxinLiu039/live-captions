@@ -49,6 +49,8 @@ class Settings:
     asr_model: str = "paraformer-realtime-v2"
     asr_format: str = "pcm"
     asr_sample_rate: int = 16000
+    asr_hotword_weight: int = field(default_factory=lambda: min(5, max(1, _env_int("ASR_HOTWORD_WEIGHT", 4))))
+    asr_hotword_timeout: float = field(default_factory=lambda: max(1.0, _env_float("ASR_HOTWORD_TIMEOUT", 15.0)))
 
     # Translation (DeepSeek)
     deepseek_api_key: str = field(default_factory=lambda: os.getenv("DEEPSEEK_API_KEY", ""))

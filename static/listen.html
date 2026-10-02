@@ -94,21 +94,27 @@ header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; bord
   .video-area { max-height: 40vh; }
 }
 </style>
+<link rel="stylesheet" href="/static/course-profiles.css">
+<link rel="stylesheet" href="/static/workspace.css">
 </head>
-<body>
+<body class="listen-workspace">
 <div class="app">
   <header>
-    <div class="brand">🎧 听力练习</div>
+    <div class="brand"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#headphones"/></svg>听力练习</div>
     <div class="spacer"></div>
-    <a class="back-link" href="/">← 返回字幕</a>
-    <button class="theme-btn" id="themeBtn">🌙</button>
+    <div class="listen-course">
+      <button class="ctrl-btn" id="courseToggle" aria-expanded="false" aria-controls="courseProfiles">课程配置</button>
+      <div id="courseProfiles" hidden></div>
+    </div>
+    <a class="back-link" href="/"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#arrow-left"/></svg>返回字幕</a>
+    <button class="theme-btn" id="themeBtn" aria-label="切换明暗主题"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#moon"/></svg></button>
   </header>
 
   <div class="main-content">
     <div class="video-area empty" id="videoArea">
       <video id="videoPlayer" style="display:none;" controls></video>
       <div class="drop-zone" id="dropZone">
-        <div class="drop-zone-icon">🎬</div>
+        <div class="drop-zone-icon"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#video"/></svg></div>
         <div class="drop-zone-title">拖入视频/音频文件，或点击选择</div>
         <div class="drop-zone-desc">支持 MP4, WebM, MP3, WAV, OGG 等格式</div>
       </div>
@@ -121,7 +127,7 @@ header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; bord
     </div>
 
     <div class="controls" id="controlsBar" style="display:none;">
-      <button class="ctrl-btn" id="startBtn">▶ 开始识别</button>
+      <button class="ctrl-btn" id="startBtn"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#play"/></svg>开始识别</button>
       <select class="ctrl-select" id="subtitleMode">
         <option value="en-only">仅英文（练听力）</option>
         <option value="zh-only">仅中文（听中文）</option>
@@ -138,7 +144,7 @@ header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; bord
         <button class="speed-btn" data-speed="1.5">1.5</button>
       </div>
       <div class="spacer"></div>
-      <button class="ctrl-btn" id="exportSubBtn">📥 导出字幕</button>
+      <button class="ctrl-btn" id="exportSubBtn"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#download"/></svg>导出字幕</button>
     </div>
 
     <div class="transcript-panel" id="transcriptPanel">
@@ -154,10 +160,11 @@ header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; bord
 </div>
 
 <script src="/static/translation-state.js"></script>
+<script src="/static/course-profiles.js"></script>
 <script>
 // Theme
 let darkMode = localStorage.getItem('theme') === 'dark' || (localStorage.getItem('theme') === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-function applyTheme() { document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light'); document.getElementById('themeBtn').textContent = darkMode ? '☀' : '🌙'; }
+function applyTheme() { document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light'); document.getElementById('themeBtn').innerHTML = darkMode ? '<svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#sun"/></svg>' : '<svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#moon"/></svg>'; }
 applyTheme();
 document.getElementById('themeBtn').addEventListener('click', () => { darkMode = !darkMode; localStorage.setItem('theme', darkMode ? 'dark' : 'light'); applyTheme(); });
 
@@ -178,10 +185,21 @@ const lineCount = document.getElementById('lineCount');
 
 let lines = []; // {id, en, zh, start, end, final}
 let ws = null;
+let courseReady = false;
 let audioCtx = null, sourceNode = null, workletNode = null;
 let recognizing = false;
+let starting = false;
 let stopping = false;
 let currentLineIdx = -1;
+
+CourseProfiles.mount(document.getElementById('courseProfiles'), {
+  expanded:true, onChange:() => CourseProfiles.send(ws)
+});
+document.getElementById('courseToggle').addEventListener('click', () => {
+  const panel = document.getElementById('courseProfiles');
+  panel.hidden = !panel.hidden;
+  document.getElementById('courseToggle').setAttribute('aria-expanded', String(!panel.hidden));
+});
 
 // File import
 dropZone.addEventListener('click', () => fileInput.click());
@@ -218,43 +236,57 @@ startBtn.addEventListener('click', () => {
 });
 
 async function startRecognition() {
-  if (!videoPlayer.src || stopping) return;
+  if (!videoPlayer.src || stopping || starting) return;
+  starting = true;
+  startBtn.disabled = true;
+  try {
+    videoPlayer.pause();
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const socketUrl = await CourseProfiles.websocketUrl(`${proto}://${location.host}/ws?mode=full`);
 
-  // Create AudioContext and capture video audio
-  audioCtx = new AudioContext({ sampleRate: 16000 });
-  sourceNode = audioCtx.createMediaElementSource(videoPlayer);
-  sourceNode.connect(audioCtx.destination); // keep audio audible
+    // Create AudioContext and capture video audio
+    audioCtx = new AudioContext({ sampleRate: 16000 });
+    sourceNode = audioCtx.createMediaElementSource(videoPlayer);
+    sourceNode.connect(audioCtx.destination); // keep audio audible
 
-  await audioCtx.audioWorklet.addModule('/static/audio-worker.js');
-  workletNode = new AudioWorkletNode(audioCtx, 'capture-processor');
-  sourceNode.connect(workletNode);
-  workletNode.connect(audioCtx.destination);
+    await audioCtx.audioWorklet.addModule('/static/audio-worker.js');
+    workletNode = new AudioWorkletNode(audioCtx, 'capture-processor');
+    sourceNode.connect(workletNode);
+    workletNode.connect(audioCtx.destination);
 
-  // Connect WebSocket
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}/ws?mode=full`);
-  ws.binaryType = 'arraybuffer';
+    // Connect WebSocket
+    courseReady = false;
+    ws = new WebSocket(socketUrl);
+    ws.binaryType = 'arraybuffer';
 
-  ws.onopen = () => {
-    statusText.textContent = '识别中…';
-    // Send hotwords if any
+    ws.onopen = () => { statusText.textContent = '正在加载课程热词…'; };
+    ws.onclose = () => { if (recognizing) { statusText.textContent = '连接断开'; } };
+    const captionSocket = ws;
+    CaptionState.bindSocket(captionSocket, handleMessage, () => ws === captionSocket);
+
+    workletNode.port.onmessage = (e) => {
+      if (e.data.type === 'pcm' && ws && ws.readyState === WebSocket.OPEN && courseReady) {
+        ws.send(e.data.pcm16);
+      }
+    };
+
+    recognizing = true;
+    await CaptionState.waitConfig(captionSocket);
+    await CourseProfiles.send(captionSocket);
     const hw = localStorage.getItem('hotwords') || '';
-    if (hw) ws.send(JSON.stringify({ type: 'hotwords', data: hw }));
-  };
-  ws.onclose = () => { if (recognizing) { statusText.textContent = '连接断开'; } };
-  const captionSocket = ws;
-  CaptionState.bindSocket(captionSocket, handleMessage, () => ws === captionSocket);
-
-  workletNode.port.onmessage = (e) => {
-    if (e.data.type === 'pcm' && ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(e.data.pcm16);
-    }
-  };
-
-  recognizing = true;
-  startBtn.textContent = '⏹ 停止识别';
-  startBtn.classList.add('recording');
-  videoPlayer.play();
+    if (hw) captionSocket.send(JSON.stringify({type:'hotwords', data:hw}));
+    courseReady = true;
+    statusText.textContent = '识别中…';
+    startBtn.innerHTML = '<svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#pause"/></svg>停止识别';
+    startBtn.classList.add('recording');
+    videoPlayer.play();
+  } catch (error) {
+    await stopRecognition();
+    statusText.textContent = '启动失败：' + error.message;
+  } finally {
+    starting = false;
+    startBtn.disabled = stopping;
+  }
 }
 
 async function stopRecognition() {
@@ -263,7 +295,7 @@ async function stopRecognition() {
   startBtn.disabled = true;
   const stoppedSocket = ws;
   recognizing = false;
-  startBtn.textContent = '▶ 开始识别';
+  startBtn.innerHTML = '<svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#play"/></svg>开始识别';
   startBtn.classList.remove('recording');
   if (workletNode) { workletNode.disconnect(); workletNode = null; }
   if (sourceNode) { sourceNode.disconnect(); sourceNode = null; }
@@ -278,7 +310,7 @@ async function stopRecognition() {
 
 // Handle server messages
 function handleMessage(msg) {
-  if (msg.type === 'config') return;
+  if (msg.type === 'config') { CourseProfiles.setRecognitionInfo(msg.asr); return; }
   if (msg.type === 'result') {
     const id = msg.sentence_id;
     let line = lines.find(l => l.id === id);

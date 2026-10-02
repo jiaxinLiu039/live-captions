@@ -97,7 +97,8 @@ class ASRBridge(RecognitionCallback):
             await self._send_async(make_translation_stream(
                 line_id, "", version=version, state="pending"), line_id, version)
             async for token in translate_stream(self.http, text, context=context,
-                                                hotwords=self.session.hotwords):
+                                                hotwords=self.session.hotwords,
+                                                course_profile=self.session.course_profile.copy()):
                 if not current():
                     return
                 accumulated += token

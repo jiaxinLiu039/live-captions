@@ -59,6 +59,7 @@ class Session:
 
         # Hotwords/glossary
         self.hotwords: str = ""
+        self.course_profile: dict[str, str] = {}
 
         # Connection state (atomic bool, no lock needed)
         self.closed: bool = False

@@ -1,0 +1,26 @@
+{
+  "profiles": [
+    {
+      "id": "2c44029a-ae71-4967-930b-57d37e6a591a",
+      "name": "最优化理论",
+      "background": "数学与计算机科学领域的最优化理论课程。常见内容包括凸集与凸函数、无约束与约束优化、最优性条件、拉格朗日对偶，以及梯度类、牛顿类和近端算法的收敛性分析。数学语境中的 stationary point 指驻点，不必然是最小值点；positive definite 指正定，positive semidefinite 指半正定；necessary 与 sufficient 分别对应必要与充分。原问题、对偶问题、目标函数和约束条件是不同概念。此为通用课程背景，具体章节以本节主题和课堂原文为准。",
+      "topic": "",
+      "glossary": "optimization = 最优化\nobjective function = 目标函数\nfeasible set = 可行集\nfeasible solution = 可行解\nconstraint = 约束\nconvex set = 凸集\nconvex function = 凸函数\nconvex optimization = 凸优化\nstrong convexity = 强凸性\nlocal optimum = 局部最优解\nglobal optimum = 全局最优解\nstationary point = 驻点\noptimality condition = 最优性条件\nfirst-order condition = 一阶条件\nsecond-order condition = 二阶条件\ngradient = 梯度\nHessian matrix = Hessian 矩阵\npositive definite = 正定\npositive semidefinite = 半正定\ngradient descent = 梯度下降\nsteepest descent = 最速下降\nNewton's method = 牛顿法\nquasi-Newton method = 拟牛顿法\nline search = 线搜索\nstep size = 步长\ntrust region = 信赖域\nLagrangian = 拉格朗日函数\nLagrange multiplier = 拉格朗日乘子\nprimal problem = 原问题\ndual problem = 对偶问题\nweak duality = 弱对偶性\nstrong duality = 强对偶性\nduality gap = 对偶间隙\nKKT conditions = KKT 条件\ncomplementary slackness = 互补松弛性\nSlater's condition = Slater 条件\nlinear programming = 线性规划\nquadratic programming = 二次规划\nsemidefinite programming = 半定规划\nsubgradient = 次梯度\nproximal operator = 近端算子\nproximal gradient method = 近端梯度法\nprojected gradient descent = 投影梯度下降\nconvergence rate = 收敛速度\nLipschitz continuity = Lipschitz 连续性\naugmented Lagrangian = 增广拉格朗日函数\nADMM = 交替方向乘子法\npenalty method = 罚函数法\nbarrier method = 障碍函数法\ninterior-point method = 内点法"
+    },
+    {
+      "id": "1c6a2614-304d-42e7-8bf3-808dfc93bc56",
+      "name": "量子计算与AI",
+      "background": "量子计算与人工智能交叉领域的课程。常见内容包括量子态、量子门、量子测量、纠缠、量子算法，以及量子机器学习中的数据编码、量子核方法、参数化量子电路、变分量子算法和量子—经典混合训练。量子电路语境中的 shot 指一次测量采样，gate 指量子门，ansatz 指试探态或电路拟设；kernel 在核方法中指核函数，在求算子零空间时指核空间。量子振幅与测量概率、量子比特与经典比特是不同概念。此为通用课程背景，具体章节以本节主题和课堂原文为准。",
+      "topic": "",
+      "glossary": "quantum computing = 量子计算\nartificial intelligence = 人工智能\nquantum machine learning = 量子机器学习\nQML = 量子机器学习\nqubit = 量子比特\nquantum state = 量子态\nsuperposition = 叠加\nentanglement = 纠缠\nquantum interference = 量子干涉\nquantum gate = 量子门\nquantum circuit = 量子电路\nquantum measurement = 量子测量\nprobability amplitude = 概率振幅\nHilbert space = 希尔伯特空间\nBloch sphere = 布洛赫球\nunitary operator = 酉算子\nHermitian operator = 厄米算子\nobservable = 可观测量\nexpectation value = 期望值\ndensity matrix = 密度矩阵\nHadamard gate = Hadamard 门\nPauli gate = Pauli 门\nCNOT gate = 受控非门\ncontrolled gate = 受控门\nquantum Fourier transform = 量子傅里叶变换\nQFT = 量子傅里叶变换\nGrover's algorithm = Grover 算法\nShor's algorithm = Shor 算法\nparameterized quantum circuit = 参数化量子电路\nPQC = 参数化量子电路\nvariational quantum circuit = 变分量子电路\nvariational quantum classifier = 变分量子分类器\nquantum neural network = 量子神经网络\nQNN = 量子神经网络\nquantum kernel = 量子核\nquantum feature map = 量子特征映射\namplitude encoding = 振幅编码\nangle encoding = 角度编码\nbasis encoding = 基态编码\nvariational quantum eigensolver = 变分量子本征求解器\nVQE = 变分量子本征求解器\nquantum approximate optimization algorithm = 量子近似优化算法\nQAOA = 量子近似优化算法\nparameter-shift rule = 参数移位规则\nbarren plateau = 贫瘠高原\nquantum noise = 量子噪声\ndecoherence = 退相干\nerror mitigation = 误差缓解\nquantum error correction = 量子纠错\nquantum advantage = 量子优势"
+    },
+    {
+      "id": "193771d8-74b2-4912-bbd6-6d8f96d7ec59",
+      "name": "深度学习",
+      "background": "机器学习与人工智能领域的深度学习课程。常见内容包括神经网络、前向传播与反向传播、梯度优化、正则化、卷积与循环网络、注意力机制、Transformer，以及表示学习和生成模型。训练语境中的 loss 指损失，epoch 指完整遍历训练集一轮，batch 指批次，attention 指注意力机制，embedding 指嵌入表示。模型参数与超参数、训练集与验证集、损失与评估指标是不同概念。此为通用课程背景，具体章节以本节主题和课堂原文为准。",
+      "topic": "",
+      "glossary": "deep learning = 深度学习\nneural network = 神经网络\nmultilayer perceptron = 多层感知机\nMLP = 多层感知机\nforward propagation = 前向传播\nbackpropagation = 反向传播\ncomputational graph = 计算图\nautomatic differentiation = 自动微分\nactivation function = 激活函数\nReLU = 修正线性单元（ReLU）\nloss function = 损失函数\ncross-entropy = 交叉熵\nmean squared error = 均方误差\ngradient descent = 梯度下降\nstochastic gradient descent = 随机梯度下降\nSGD = 随机梯度下降\nlearning rate = 学习率\noptimizer = 优化器\nmomentum = 动量\nAdam = Adam 优化器\nmini-batch = 小批量\nepoch = 训练轮次\niteration = 迭代\noverfitting = 过拟合\nunderfitting = 欠拟合\ngeneralization = 泛化\nregularization = 正则化\nweight decay = 权重衰减\ndropout = 随机失活（Dropout）\nbatch normalization = 批归一化\nlayer normalization = 层归一化\nvanishing gradient = 梯度消失\nexploding gradient = 梯度爆炸\ngradient clipping = 梯度裁剪\nconvolutional neural network = 卷积神经网络\nCNN = 卷积神经网络\nconvolution kernel = 卷积核\nreceptive field = 感受野\npooling = 池化\nrecurrent neural network = 循环神经网络\nRNN = 循环神经网络\nLSTM = 长短期记忆网络\nattention mechanism = 注意力机制\nself-attention = 自注意力\nmulti-head attention = 多头注意力\nTransformer = Transformer 模型\nresidual connection = 残差连接\nembedding = 嵌入表示\npositional encoding = 位置编码\nencoder = 编码器\ndecoder = 解码器\nfine-tuning = 微调\ntransfer learning = 迁移学习\nself-supervised learning = 自监督学习\ncontrastive learning = 对比学习\nautoencoder = 自编码器\nvariational autoencoder = 变分自编码器\nVAE = 变分自编码器\ngenerative adversarial network = 生成对抗网络\nGAN = 生成对抗网络\ndiffusion model = 扩散模型"
+    }
+  ],
+  "activeId": ""
+}

@@ -8,6 +8,7 @@ async function main() {
   for (const file of ['index.html', 'listen.html']) {
     const html = fs.readFileSync(path.join(__dirname, '../static', file), 'utf8');
     assert.ok(html.includes('<script src="/static/translation-state.js"></script>'));
+    assert.ok(html.includes('<script src="/static/course-profiles.js"></script>'));
     for (const match of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
       new vm.Script(match[1], {filename: file});
     }
@@ -37,12 +38,19 @@ async function main() {
     sent = [];
     send(data) { this.sent.push(data); }
     close() { this.readyState = 3; this.dispatchEvent(new Event('close')); }
-    receive(message) { this.onmessage({data: JSON.stringify(message)}); }
+    receive(message) {
+      const data = JSON.stringify(message);
+      this.onmessage?.({data});
+      this.dispatchEvent(new MessageEvent('message', {data}));
+    }
   }
   const socket = new Socket();
+  const awaitingConfig = CaptionState.waitConfig(socket, 100);
   const messages = [];
   CaptionState.bindSocket(socket, message => messages.push(message), () => true);
   socket.receive({type: 'config', session_id: 'session-A', stop_timeout_ms: 100});
+  assert.equal((await awaitingConfig).session_id, 'session-A');
+  assert.equal((await CaptionState.waitConfig(socket)).session_id, 'session-A');
   const pending = CaptionState.drainSocket(socket);
   socket.receive({type: 'translation_stream', line_id: 0, version: 1, accumulated: '最后一句', final: true});
   assert.equal(socket.readyState, 1);
@@ -61,6 +69,11 @@ async function main() {
   const stale = new Socket();
   CaptionState.bindSocket(stale, () => { throw new Error('stale socket delivered'); }, () => false);
   stale.receive({type: 'result', sentence_id: 0});
+  const failedStart = new Socket();
+  const failedConfig = CaptionState.waitConfig(failedStart, 100);
+  failedStart.receive({type:'error', recoverable:false, msg:'课程不存在'});
+  await assert.rejects(failedConfig, /课程不存在/);
+  await assert.rejects(CaptionState.waitConfig(new Socket(), 5), /启动超时/);
 
   // Exercise the actual page's asynchronous stop/new-session functions without
   // media devices or a browser: saving and clearing must happen after the ack.

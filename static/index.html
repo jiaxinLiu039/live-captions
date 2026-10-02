@@ -142,59 +142,83 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","N
 /* Responsive */
 @media(max-width:768px){.sidebar{position:fixed;z-index:200;height:100%;box-shadow:var(--shadow)}.sidebar.collapsed{margin-left:calc(-1*var(--sidebar-w))}}
 </style>
+<link rel="stylesheet" href="/static/course-profiles.css">
+<link rel="stylesheet" href="/static/workspace.css">
 </head>
-<body>
+<body class="caption-workspace">
 <div class="app">
   <!-- Sidebar: Recording Library -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <h2>📁 录音库</h2>
-      <button class="icon-btn" id="sidebarClose" title="收起"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <h2><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#archive"/></svg>录音库</h2>
+      <button class="icon-btn" id="sidebarClose" title="收起" aria-label="收起录音库"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-left"/></svg></button>
     </div>
     <div class="sidebar-list" id="sidebarList"></div>
     <div class="sidebar-footer">
-      <button class="new-btn" id="newRecBtn">＋ 新录制</button>
+      <button class="new-btn" id="newRecBtn"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#plus"/></svg>新录制</button>
     </div>
   </aside>
 
   <!-- Main Panel -->
   <div class="main-panel">
     <div class="main-header">
-      <button class="toggle-sidebar" id="toggleSidebar" title="录音库">☰</button>
-      <span class="main-title" id="mainTitle">新录制</span>
-      <div class="spacer" style="flex:1"></div>
-      <button class="icon-btn" id="copyBtn" title="复制中文"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg></button>
-      <button class="icon-btn" id="searchToggle" title="搜索"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></button>
-      <button class="icon-btn" id="exportToggle" title="导出" style="position:relative"><svg viewBox="0 0 24 24"><path d="M12 4v12m0 0l-4-4m4 4l4-4M5 20h14"/></svg><div class="export-dd" id="exportDD"><div class="export-dd-item" data-fmt="txt-zh">📄 中文 .txt</div><div class="export-dd-item" data-fmt="txt-en">📄 英文 .txt</div><div class="export-dd-item" data-fmt="txt-both">📄 双语 .txt</div><div class="export-dd-item" data-fmt="srt">🎬 .srt 字幕</div><div class="export-dd-item" data-fmt="vtt">🎬 .vtt 字幕</div></div></button>
-      <button class="icon-btn" id="clearBtn" title="清空"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2M7 7l1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13"/></svg></button>
-      <button class="icon-btn" id="statsBtn" title="用量统计"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 16l4-5 4 3 4-6"/></svg></button>
-      <button class="icon-btn" id="pipBtn" title="浮窗字幕"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="14" height="16" rx="2"/><rect x="14" y="10" width="8" height="10" rx="2"/></svg></button>
-      <button class="icon-btn" id="listenBtn" title="听力练习" onclick="window.open('/listen','_blank')"><svg viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></button>
-      <button class="icon-btn" id="settingsToggle" title="设置"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68 1.65 1.65 0 0 0 10 3.17V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      <button class="toggle-sidebar" id="toggleSidebar" title="录音库" aria-label="录音库"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#menu"/></svg></button>
+      <div class="header-title"><div class="header-kicker">LIVE CAPTIONS</div><span class="main-title" id="mainTitle">新录制</span></div>
+      <nav class="main-tools" aria-label="字幕工具">
+        <button class="icon-btn" id="searchToggle" title="搜索字幕" aria-label="搜索字幕"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#search"/></svg></button>
+        <div class="toolbar-menu">
+          <button class="icon-btn toolbar-label" id="exportToggle" title="导出字幕" aria-label="导出字幕" aria-haspopup="menu" aria-expanded="false" aria-controls="exportDD"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#download"/></svg><span>导出</span></button>
+          <div class="toolbar-dropdown" id="exportDD" role="menu" aria-label="导出格式" hidden>
+            <button type="button" class="export-dd-item" role="menuitem" data-fmt="txt-zh">中文文本 <small>.txt</small></button>
+            <button type="button" class="export-dd-item" role="menuitem" data-fmt="txt-en">英文文本 <small>.txt</small></button>
+            <button type="button" class="export-dd-item" role="menuitem" data-fmt="txt-both">双语文本 <small>.txt</small></button>
+            <div class="menu-separator" role="separator"></div>
+            <button type="button" class="export-dd-item" role="menuitem" data-fmt="srt">字幕文件 <small>.srt</small></button>
+            <button type="button" class="export-dd-item" role="menuitem" data-fmt="vtt">字幕文件 <small>.vtt</small></button>
+          </div>
+        </div>
+        <button class="icon-btn toolbar-label" id="pipBtn" title="浮窗字幕" aria-label="浮窗字幕"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#pip"/></svg><span>浮窗</span></button>
+        <button class="icon-btn" id="settingsToggle" title="设置" aria-label="设置"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#settings"/></svg></button>
+        <div class="toolbar-menu">
+          <button class="icon-btn" id="moreToggle" title="更多操作" aria-label="更多操作" aria-haspopup="menu" aria-expanded="false" aria-controls="moreDD"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#more"/></svg></button>
+          <div class="toolbar-dropdown" id="moreDD" role="menu" aria-label="更多操作" hidden>
+            <button type="button" id="copyBtn" role="menuitem"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#copy"/></svg>复制中文</button>
+            <button type="button" id="listenBtn" role="menuitem" onclick="window.open('/listen','_blank')"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#headphones"/></svg>听力练习</button>
+            <button type="button" id="statsBtn" role="menuitem"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#chart"/></svg>用量统计</button>
+            <div class="menu-separator" role="separator"></div>
+            <button type="button" id="clearBtn" role="menuitem" class="menu-danger"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#delete"/></svg>清空当前字幕</button>
+          </div>
+        </div>
+      </nav>
     </div>
 
-    <!-- Recording controls bar -->
+    <!-- Course selection and recording -->
     <div class="rec-controls" id="recControls">
-      <button class="btn" id="toggleBtn"><span class="glyph"></span><span id="btnText">开始录音</span></button>
-      <button class="btn-pause" id="pauseBtn">⏸</button>
-      <div class="waveform-wrap"><canvas id="waveformCanvas"></canvas></div>
-      <span class="elapsed" id="elapsed">00:00:00</span>
-      <span class="status" id="statusEl"><span class="dot"></span><span id="statusText">未连接</span></span>
+      <div id="mainCoursePicker"></div>
+      <div class="capture-actions">
+        <button class="btn" id="toggleBtn"><span class="glyph"></span><span id="btnText">开始录音</span></button>
+        <button class="btn-pause" id="pauseBtn"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#pause"/></svg>暂停</button>
+        <div class="waveform-wrap"><canvas id="waveformCanvas"></canvas></div>
+        <span class="elapsed" id="elapsed">00:00:00</span>
+        <span class="status" id="statusEl" role="status"><span class="dot"></span><span id="statusText">未连接</span></span>
+      </div>
+      <p class="course-asr-status" role="status" aria-live="polite" hidden></p>
     </div>
 
     <!-- Search bar -->
     <div class="search-bar" id="searchBar">
       <input id="searchInput" placeholder="搜索转录文本…" />
       <span class="search-count" id="searchCount"></span>
-      <button class="close-x" id="searchClose">✕</button>
+      <button class="close-x" id="searchClose" aria-label="关闭"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#x"/></svg></button>
     </div>
 
     <!-- Content: transcript -->
     <div class="content" id="content">
       <div class="empty-state" id="emptyState">
-        <div class="empty-state-icon">🎧</div>
+        <div class="empty-state-icon"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#headphones"/></svg></div>
         <div class="empty-state-title">准备就绪</div>
-        <div class="empty-state-desc">点击「开始录音」，英文语音将实时识别并翻译为中文。也可以从左侧录音库查看历史。</div>
+        <div class="empty-state-desc">选择课程，开始记录。
+          英文原文与中文翻译会在这里逐句呈现。</div>
       </div>
     </div>
 
@@ -210,7 +234,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","N
       <div style="flex:1"></div>
       <div class="size-group">
         <button class="size-pip" data-size="16" style="font-size:10px">A</button>
-        <button class="size-pip on" data-size="18" style="font-size:12px">A</button>
+        <button class="size-pip on" data-size="20" style="font-size:12px">A</button>
         <button class="size-pip" data-size="22" style="font-size:14px">A</button>
         <button class="size-pip" data-size="28" style="font-size:16px">A</button>
       </div>
@@ -222,7 +246,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","N
 <!-- Stats Modal -->
 <div class="settings-overlay" id="statsOverlay"></div>
 <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);width:340px;max-width:90vw;z-index:302;padding:20px;display:none" id="statsModal">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span style="font-weight:600;font-size:15px">📊 用量统计</span><button class="close-x" id="statsClose">✕</button></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span style="font-weight:600;font-size:15px"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#chart"/></svg> 用量统计</span><button class="close-x" id="statsClose" aria-label="关闭"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#x"/></svg></button></div>
   <div style="font-size:14px">
     <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--text-soft)">录音时长</span><span id="sAudio">0 秒</span></div>
     <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--text-soft)">翻译句数</span><span id="sTrans">0 句</span></div>
@@ -238,23 +262,25 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","N
 <!-- Settings Panel (right slide) -->
 <div class="settings-overlay" id="settingsOverlay"></div>
 <div class="settings-panel" id="settingsPanel">
-  <div class="sp-header"><span>⚙ 设置</span><button class="close-x" id="settingsClose">✕</button></div>
+  <div class="sp-header"><span><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#settings"/></svg>设置</span><button class="close-x" id="settingsClose" aria-label="关闭"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#x"/></svg></button></div>
+
+  <div id="courseProfiles"></div>
 
   <div class="sp-group">
     <div class="sp-label">主题</div>
     <div class="theme-toggle" id="themeToggle">
-      <div class="theme-opt" data-theme="light">☀ 亮色</div>
-      <div class="theme-opt" data-theme="dark">🌙 暗色</div>
-      <div class="theme-opt" data-theme="system">💻 系统</div>
+      <div class="theme-opt" data-theme="light"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#sun"/></svg>亮色</div>
+      <div class="theme-opt" data-theme="dark"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#moon"/></svg>暗色</div>
+      <div class="theme-opt" data-theme="system"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#monitor"/></svg>系统</div>
     </div>
   </div>
 
   <div class="sp-group">
     <div class="sp-label">音频来源</div>
     <select class="sp-select" id="audioSourceSelect">
-      <option value="mic">🎙 麦克风</option>
-      <option value="system">🖥 系统音频（屏幕共享）</option>
-      <option value="both">🎙+🖥 混合</option>
+      <option value="mic">麦克风</option>
+      <option value="system">系统音频（屏幕共享）</option>
+      <option value="both">麦克风与系统音频</option>
     </select>
   </div>
 
@@ -265,25 +291,21 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","N
 
   <div class="sp-group">
     <div class="sp-label">源语言（识别）</div>
-    <select class="sp-select" id="srcLangSelect">
-      <option value="en">🇬🇧 英语</option>
-      <option value="zh">🇨🇳 中文</option>
-      <option value="ja">🇯🇵 日语</option>
-      <option value="ko">🇰🇷 韩语</option>
-      <option value="fr">🇫🇷 法语</option>
-      <option value="de">🇩🇪 德语</option>
+    <select class="sp-select" id="srcLangSelect" disabled>
+      <option value="en">英语</option>
     </select>
+    <div class="sp-hint">识别器按英语课堂配置</div>
   </div>
 
   <div class="sp-group">
     <div class="sp-label">目标语言（翻译）</div>
     <select class="sp-select" id="tgtLangSelect">
-      <option value="zh">🇨🇳 中文</option>
-      <option value="en">🇬🇧 英语</option>
-      <option value="ja">🇯🇵 日语</option>
-      <option value="ko">🇰🇷 韩语</option>
-      <option value="fr">🇫🇷 法语</option>
-      <option value="de">🇩🇪 德语</option>
+      <option value="zh">中文</option>
+      <option value="en">英语</option>
+      <option value="ja">日语</option>
+      <option value="ko">韩语</option>
+      <option value="fr">法语</option>
+      <option value="de">德语</option>
     </select>
   </div>
 
@@ -291,18 +313,18 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","N
     <div class="sp-label">热词/术语表</div>
     <div style="display:flex;gap:6px;margin-bottom:8px;">
       <select class="sp-select" id="hotwordFileSelect" style="flex:1"><option value="">-- 选择词表 --</option></select>
-      <button class="close-x" id="hwRefresh" title="刷新" style="font-size:13px">↻</button>
+      <button class="close-x" id="hwRefresh" title="刷新" aria-label="刷新词表" style="font-size:13px"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#refresh"/></svg></button>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:8px;">
-      <button class="close-x" id="hwImportBtn" title="导入文件" style="font-size:11px;width:auto;padding:0 8px;">📂 导入</button>
-      <button class="close-x" id="hwNewBtn" title="新建" style="font-size:11px;width:auto;padding:0 8px;">＋ 新建</button>
-      <button class="close-x" id="hwDeleteBtn" title="删除当前" style="font-size:11px;width:auto;padding:0 8px;color:var(--red)">🗑</button>
+      <button class="close-x" id="hwImportBtn" title="导入文件" style="font-size:11px;width:auto;padding:0 8px;"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#folder"/></svg>导入</button>
+      <button class="close-x" id="hwNewBtn" title="新建" style="font-size:11px;width:auto;padding:0 8px;"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#plus"/></svg>新建</button>
+      <button class="close-x" id="hwDeleteBtn" title="删除当前" style="font-size:11px;width:auto;padding:0 8px;color:var(--red)" aria-label="删除词表"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#delete"/></svg></button>
     </div>
     <input type="file" id="hwFileInput" style="display:none" accept=".txt,.csv" />
     <textarea class="sp-textarea" id="hotwordsArea" placeholder="每行一个术语，例如：&#10;Transformer&#10;gradient descent = 梯度下降"></textarea>
     <div style="display:flex;justify-content:space-between;margin-top:6px;">
-      <span class="sp-hint">录音时自动传给 AI 提高准确度</span>
-      <button class="close-x" id="hwSaveBtn" style="font-size:11px;width:auto;padding:0 8px;background:var(--accent);color:#fff;border-color:var(--accent)">💾 保存</button>
+      <span class="sp-hint">通用术语用于翻译；课程术语也用于识别</span>
+      <button class="close-x" id="hwSaveBtn" style="font-size:11px;width:auto;padding:0 8px;background:var(--accent);color:#fff;border-color:var(--accent)"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#save"/></svg>保存</button>
     </div>
   </div>
 
@@ -319,7 +341,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","N
     <input class="sp-input" id="setProgExtra" type="number" min="1" step="1" />
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
       <span class="sp-hint">修改后需点击保存才生效</span>
-      <button class="close-x" id="transSaveBtn" style="font-size:11px;width:auto;padding:0 10px;background:var(--accent);color:#fff;border-color:var(--accent)">💾 保存</button>
+      <button class="close-x" id="transSaveBtn" style="font-size:11px;width:auto;padding:0 10px;background:var(--accent);color:#fff;border-color:var(--accent)"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#save"/></svg>保存</button>
     </div>
   </div>
 
@@ -330,9 +352,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","N
 </div>
 
 <!-- FAB: AI Chat -->
-<button class="fab-chat" id="fabChat" title="AI 助手"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+<button class="fab-chat" id="fabChat" title="AI 助手" aria-label="AI 助手"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#chat"/></svg></button>
 
 <script src="/static/translation-state.js"></script>
+<script src="/static/course-profiles.js"></script>
 <script>
 // ===== Theme =====
 const ThemeManager={init(){const s=localStorage.getItem('theme')||'system';this.set(s);window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(this.current==='system')this._apply('system')})},set(t){this.current=t;localStorage.setItem('theme',t);this._apply(t)},_apply(t){const dark=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.setAttribute('data-theme',dark?'dark':'light')}};
@@ -341,7 +364,8 @@ ThemeManager.init();
 // ===== State =====
 const DEBUG=new URLSearchParams(location.search).has('debug');
 let ws=null,audioCtx=null,mediaStream=null,workletNode=null;
-let recording=false,paused=false,intentionalStop=false;
+let courseReady=false;
+let recording=false,paused=false,intentionalStop=false,starting=false;
 let stopping=false;
 let stopCompletion=null;
 const sentences=new Map();
@@ -402,7 +426,7 @@ function render(){
     let enH=esc(s.en||''),zhH=esc(s.zh||(s.translationError?'翻译未完成':'正在翻译'));
     if(s.translationError)zhH+=` <span class="pending">（${esc(s.translationError)}）</span>`;
     if(searchQuery){const re=new RegExp(`(${esc(searchQuery)})`,'gi');enH=enH.replace(re,'<mark class="highlight">$1</mark>');zhH=zhH.replace(re,'<mark class="highlight">$1</mark>')}
-    div.innerHTML=`<button class="bookmark-btn">${bk?'★':'☆'}</button>${t?`<span class="s-time">${t}</span>`:''}<div class="s-en">${enH}</div><div class="s-zh${s.zh?'':' pending'}">${zhH}</div>`;
+    div.innerHTML=`<button class="bookmark-btn" aria-label="${bk?'取消收藏':'收藏字幕'}" title="${bk?'取消收藏':'收藏字幕'}"><svg class="ui-icon" ${bk?'style="fill:currentColor"':''} aria-hidden="true"><use href="/static/icons.svg#star"/></svg></button>${t?`<span class="s-time">${t}</span>`:''}<div class="s-en">${enH}</div><div class="s-zh${s.zh?'':' pending'}">${zhH}</div>`;
     div.querySelector('.bookmark-btn').addEventListener('click',e=>{e.stopPropagation();if(bookmarkedIds.has(id))bookmarkedIds.delete(id);else bookmarkedIds.add(id);localStorage.setItem('bookmarks',JSON.stringify([...bookmarkedIds]));lastRenderSig='';render()});
     div.addEventListener('dblclick',()=>{
       const s=sentences.get(id);if(!s)return;
@@ -419,7 +443,7 @@ function render(){
 // ===== WebSocket protocol =====
 function handleMessage(msg){
   switch(msg.type){
-    case'config':if(configReadyResolve){configReadyResolve(msg);configReadyResolve=null}break;
+    case'config':CourseProfiles.setRecognitionInfo(msg.asr);if(configReadyResolve){configReadyResolve(msg);configReadyResolve=null}break;
     case'translation_stream':case'translation_error':{const c=sentences.get(msg.line_id)||{en:'',zh:'',final:false};if(CaptionState.translation(c,msg)){sentences.set(msg.line_id,c);render()}}break;
     case'result':{const id=msg.sentence_id??'live';const c=sentences.get(id)||{en:'',zh:'',final:false};if(CaptionState.result(c,msg)){sentences.set(id,c);render()}}break;
     case'stats':statsData=msg;break;
@@ -432,9 +456,9 @@ function handleMessage(msg){
 function getWsUrl(){const custom=(document.getElementById('wsUrlInput')?.value||'').trim();if(custom)return custom;const p=location.protocol==='https:'?'wss':'ws';return`${p}://${location.host}/ws?mode=full`}
 
 async function start(){
-  if(stopping)return;
+  if(stopping||starting)return;
+  starting=true;toggleBtn.disabled=true;
   intentionalStop=false;paused=false;
-  const cfgReady=new Promise(r=>{configReadyResolve=r});
   try{
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){throw new Error('麦克风不可用，请用 http://localhost 访问')}
     setStatus('请求音频…');
@@ -488,32 +512,34 @@ async function start(){
       console.log('[dbg] audioSource=',audioSource);
       mediaStream.getAudioTracks().forEach(t=>console.log('[dbg] audio track:',{readyState:t.readyState,muted:t.muted,enabled:t.enabled,settings:t.getSettings?.()}));
     }
-    ws=new WebSocket(getWsUrl());ws.binaryType='arraybuffer';
-    ws.onopen=()=>setStatus('等待服务器…');
+    ws=new WebSocket(await CourseProfiles.websocketUrl(getWsUrl()));ws.binaryType='arraybuffer';
+    ws.onopen=()=>setStatus('正在加载课程热词…');
     ws.onclose=()=>{if(ws!==captionSocket||stopping)return;if(!intentionalStop&&recording)scheduleReconnect();else setStatus('已断开')};
     ws.onerror=()=>{if(!intentionalStop&&recording)scheduleReconnect();else setStatus('连接错误','error')};
     const captionSocket=ws;
     CaptionState.bindSocket(captionSocket,handleMessage,()=>ws===captionSocket);
-    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('服务器超时')),5000));
-    await Promise.race([cfgReady,timeout]);
+    await CaptionState.waitConfig(captionSocket);
     setStatus('录音中','live');startElapsed();
     // Send hotwords
     const hw=localStorage.getItem('hotwords')||'';
     if(hw&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'hotwords',data:hw}));
     // Send translation/sentence settings
     sendTransSettings();
+    await CourseProfiles.send(ws);
+    courseReady=true;
     audioCtx=new (window.AudioContext||window.webkitAudioContext)();
     await audioCtx.audioWorklet.addModule('/static/audio-worker.js');
     workletNode=new AudioWorkletNode(audioCtx,'capture-processor');
     workletNode.port.onmessage=e=>{
       if(e.data.type==='dbg'){if(DEBUG)console.log('[dbg]',e.data);return}
-      if(e.data.type==='pcm'){if(ws&&ws.readyState===WebSocket.OPEN&&recording&&!paused)ws.send(e.data.pcm16)}
+      if(e.data.type==='pcm'){if(ws&&ws.readyState===WebSocket.OPEN&&courseReady&&recording&&!paused)ws.send(e.data.pcm16)}
       else if(e.data.type==='energy'){WF.push(paused?0:e.data.rms);if(!paused)checkSilence(e.data.rms)}
     };
     const src=audioCtx.createMediaStreamSource(mediaStream);src.connect(workletNode);
     recording=true;btnText.textContent='停止';toggleBtn.classList.add('recording');pauseBtn.style.display='inline-flex';
     WF.start();mainTitle.textContent='录制中…';requestWakeLock();
-  }catch(err){console.error(err);setStatus('启动失败','error');showToast(err.message);stop()}
+  }catch(err){console.error(err);setStatus('启动失败','error');showToast(err.message);await stop()}
+  finally{starting=false;if(!stopping)toggleBtn.disabled=false}
 }
 
 async function stop(){
@@ -524,7 +550,7 @@ async function stop(){
   const stoppedSocket=ws;
   intentionalStop=true;recording=false;paused=false;
   btnText.textContent='开始录音';toggleBtn.classList.remove('recording');
-  pauseBtn.style.display='none';pauseBtn.classList.remove('paused');pauseBtn.textContent='⏸';
+  pauseBtn.style.display='none';pauseBtn.classList.remove('paused');pauseBtn.innerHTML='<svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#pause"/></svg>暂停';
   WF.stop();stopElapsed();releaseWakeLock();clearTimeout(silenceTimer);silenceTimer=null;
   if(workletNode){workletNode.disconnect();workletNode=null}
   if(audioCtx){audioCtx.close();audioCtx=null}
@@ -543,10 +569,10 @@ async function stop(){
 }
 
 toggleBtn.addEventListener('click',()=>{if(recording)stop();else start()});
-pauseBtn.addEventListener('click',()=>{paused=!paused;pauseBtn.classList.toggle('paused',paused);pauseBtn.textContent=paused?'▶':'⏸';setStatus(paused?'已暂停':'录音中',paused?'':'live')});
+pauseBtn.addEventListener('click',()=>{paused=!paused;pauseBtn.classList.toggle('paused',paused);pauseBtn.innerHTML=(paused?'<svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#play"/></svg>继续':'<svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#pause"/></svg>暂停');setStatus(paused?'已暂停':'录音中',paused?'':'live')});
 
 // Keyboard
-document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;if(e.code==='Space'){e.preventDefault();toggleBtn.click()}});
+document.addEventListener('keydown',e=>{if(e.defaultPrevented||e.target.closest('input,textarea,select,button,a,[contenteditable="true"]'))return;if(e.code==='Space'&&!e.repeat){e.preventDefault();toggleBtn.click()}});
 
 // ===== Session management =====
 function getAllSessions(){return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]')}
@@ -616,7 +642,7 @@ function renderSidebar(){
   const list=getAllSessions();
   const el=document.getElementById('sidebarList');
   if(!list.length){el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-faint);font-size:12px">暂无录音</div>';return}
-  el.innerHTML=list.map(s=>`<div class="sb-item${s.id===currentSessionId?' active':''}" data-id="${s.id}"><span class="sb-item-del" data-del="${s.id}" title="删除">✕</span><span class="sb-item-edit" data-edit="${s.id}" title="重命名">✏️</span><div class="sb-item-title">${esc(s.title)}</div><div class="sb-item-meta">${s.count} 句 · ${new Date(s.created).toLocaleDateString()}</div></div>`).join('');
+  el.innerHTML=list.map(s=>`<div class="sb-item${s.id===currentSessionId?' active':''}" data-id="${s.id}"><span class="sb-item-del" data-del="${s.id}" title="删除"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#x"/></svg></span><span class="sb-item-edit" data-edit="${s.id}" title="重命名"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#edit"/></svg></span><div class="sb-item-title">${esc(s.title)}</div><div class="sb-item-meta">${s.count} 句 · ${new Date(s.created).toLocaleDateString()}</div></div>`).join('');
   el.querySelectorAll('.sb-item').forEach(item=>{
     item.addEventListener('click',e=>{if(e.target.dataset.del||e.target.dataset.edit)return;loadSession(Number(item.dataset.id))});
   });
@@ -631,6 +657,8 @@ document.getElementById('newRecBtn').addEventListener('click',newSession);
 
 // Sidebar toggle
 const sidebar=document.getElementById('sidebar');
+if(window.innerWidth<=768)sidebar.classList.add('collapsed');
+window.matchMedia('(max-width:768px)').addEventListener('change',e=>{if(e.matches)sidebar.classList.add('collapsed')});
 document.getElementById('toggleSidebar').addEventListener('click',()=>sidebar.classList.toggle('collapsed'));
 document.getElementById('sidebarClose').addEventListener('click',()=>sidebar.classList.add('collapsed'));
 
@@ -642,8 +670,34 @@ searchInput.addEventListener('input',()=>{searchQuery=searchInput.value.trim().t
 
 // ===== Export =====
 const exportDD=document.getElementById('exportDD');
-document.getElementById('exportToggle').addEventListener('click',e=>{e.stopPropagation();if(!sentences.size)return showToast('暂无内容');exportDD.classList.toggle('show')});
-document.addEventListener('click',()=>exportDD.classList.remove('show'));
+const moreDD=document.getElementById('moreDD');
+function closeToolbarMenus(){
+  for(const [id, panel] of [['exportToggle',exportDD],['moreToggle',moreDD]]){
+    panel.hidden=true;document.getElementById(id).setAttribute('aria-expanded','false');
+  }
+}
+for(const [id,panel] of [['exportToggle',exportDD],['moreToggle',moreDD]]){
+  const trigger=document.getElementById(id);
+  trigger.addEventListener('click',e=>{
+    e.stopPropagation();const opening=panel.hidden;closeToolbarMenus();
+    if(id==='exportToggle'&&!sentences.size)return showToast('暂无内容');
+    panel.hidden=!opening;trigger.setAttribute('aria-expanded',String(opening));
+  });
+  trigger.addEventListener('keydown',e=>{
+    if(e.key!=='ArrowDown')return;
+    if(id==='exportToggle'&&!sentences.size){e.preventDefault();return showToast('暂无内容')}
+    e.preventDefault();closeToolbarMenus();panel.hidden=false;trigger.setAttribute('aria-expanded','true');panel.querySelector('button').focus();
+  });
+  panel.addEventListener('keydown',e=>{
+    const items=[...panel.querySelectorAll('button')];const index=items.indexOf(document.activeElement);
+    if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){
+      e.preventDefault();items[e.key==='Home'?0:e.key==='End'?items.length-1:(index+(e.key==='ArrowDown'?1:-1)+items.length)%items.length].focus();
+    }
+    if(e.key==='Escape'){e.preventDefault();closeToolbarMenus();trigger.focus();}
+  });
+}
+document.addEventListener('click',closeToolbarMenus);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeToolbarMenus()});
 function srtT(sec){const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.floor(sec%60),ms=Math.floor((sec%1)*1000);return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(ms).padStart(3,'0')}`}
 function dl(c,f){const b=new Blob([c],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f;document.body.appendChild(a);a.click();a.remove()}
 document.querySelectorAll('.export-dd-item').forEach(i=>i.addEventListener('click',()=>{
@@ -655,7 +709,7 @@ document.querySelectorAll('.export-dd-item').forEach(i=>i.addEventListener('clic
     case'srt':{let r='';all.forEach((s,i)=>{r+=`${i+1}\n${srtT(s.start||i*3)} --> ${srtT(s.start?(s.start+3):((i+1)*3))}\n${s.zh||s.en||''}\n\n`});dl(r,`字幕-${ts}.srt`)}break;
     case'vtt':{let r='WEBVTT\n\n';all.forEach((s,i)=>{r+=`${srtT(s.start||i*3).replace(',','.')} --> ${srtT(s.start?(s.start+3):((i+1)*3)).replace(',','.')}\n${s.zh||s.en||''}\n\n`});dl(r,`字幕-${ts}.vtt`)}break;
   }
-  exportDD.classList.remove('show');showToast('已导出');
+  closeToolbarMenus();showToast('已导出');
 }));
 
 // ===== Display mode =====
@@ -665,7 +719,7 @@ document.querySelectorAll('.mode-pip').forEach(p=>p.addEventListener('click',()=
 applyMode(displayMode);
 
 // ===== Font size =====
-document.querySelectorAll('.size-pip').forEach(p=>p.addEventListener('click',()=>{document.querySelectorAll('.size-pip').forEach(x=>x.classList.remove('on'));p.classList.add('on');document.documentElement.style.setProperty('--zh-size',p.dataset.size+'px')}));
+document.querySelectorAll('.size-pip').forEach(p=>{p.setAttribute('aria-label','字幕字号 '+p.dataset.size);p.title='字幕字号 '+p.dataset.size;p.addEventListener('click',()=>{document.querySelectorAll('.size-pip').forEach(x=>x.classList.remove('on'));p.classList.add('on');document.documentElement.style.setProperty('--zh-size',p.dataset.size+'px')})});
 
 // ===== Settings panel =====
 const settingsPanel=document.getElementById('settingsPanel');
@@ -675,6 +729,13 @@ function closeSettings(){settingsPanel.classList.remove('show');settingsOverlay.
 document.getElementById('settingsToggle').addEventListener('click',openSettings);
 document.getElementById('settingsClose').addEventListener('click',closeSettings);
 settingsOverlay.addEventListener('click',closeSettings);
+CourseProfiles.mount(document.getElementById('courseProfiles'), {
+  expanded:true, onChange:()=>CourseProfiles.send(ws)
+});
+CourseProfiles.mountPicker(document.getElementById('mainCoursePicker'), {
+  onChange:async()=>{await CourseProfiles.send(ws);if(recording)showToast('课程已切换，识别热词下次开始时生效')},
+  onManage:()=>{openSettings();document.getElementById('courseProfiles').querySelector('details').open=true}
+});
 
 // Theme in settings
 document.querySelectorAll('#themeToggle .theme-opt').forEach(opt=>{
@@ -807,7 +868,7 @@ function sendTransSettings(){
   return false;
 }
 document.getElementById('transSaveBtn').addEventListener('click',()=>{
-  showToast(sendTransSettings()?'✅ 已保存并生效':'已保存（录音未开始，点击录音后自动生效）');
+  showToast(sendTransSettings()?'已保存并生效':'已保存（录音未开始，点击录音后自动生效）');
 });
 applyTransSettingsToUI();
 
@@ -841,11 +902,27 @@ function scheduleReconnect(){
   reconnectAttempts++;
   const delay=Math.min(1000*Math.pow(2,reconnectAttempts-1),30000);
   setStatus(`重连中 (${reconnectAttempts})…`,'error');
-  setTimeout(()=>{
+  setTimeout(async()=>{
     if(!recording||intentionalStop)return;
     if(ws){try{ws.close()}catch{};ws=null}
-    ws=new WebSocket(getWsUrl());ws.binaryType='arraybuffer';
-    ws.onopen=()=>{setStatus('录音中','live');reconnectAttempts=0};
+    courseReady=false;
+    let socketUrl;
+    try{socketUrl=await CourseProfiles.websocketUrl(getWsUrl())}
+    catch(err){showToast(err.message);if(recording&&!intentionalStop)scheduleReconnect();return}
+    if(!recording||intentionalStop)return;
+    ws=new WebSocket(socketUrl);ws.binaryType='arraybuffer';
+    ws.onopen=async()=>{
+      try{
+        setStatus('正在加载课程热词…');
+        await CaptionState.waitConfig(captionSocket);
+        await CourseProfiles.send(captionSocket);
+        if(ws!==captionSocket)return;
+        const hw=localStorage.getItem('hotwords')||'';
+        captionSocket.send(JSON.stringify({type:'hotwords',data:hw}));
+        sendTransSettings();courseReady=true;
+        setStatus('录音中','live');reconnectAttempts=0;
+      }catch(err){showToast('课程配置加载失败：'+err.message);captionSocket.close()}
+    };
     ws.onclose=()=>{if(ws===captionSocket&&!intentionalStop&&recording)scheduleReconnect()};
     ws.onerror=()=>{if(!intentionalStop&&recording)scheduleReconnect()};
     const captionSocket=ws;
@@ -885,7 +962,7 @@ function updatePip(){
   const lines=[...sentences.values()];
   const jump=pipWindow.document.getElementById('pipJump');
   if(!lines.length){
-    container.innerHTML='<div class="pip-empty">🎤 等待语音…</div>';
+    container.innerHTML='<div class="pip-empty">等待语音…</div>';
     if(jump)jump.style.display='none';
     return;
   }
@@ -907,26 +984,27 @@ async function openPip(){
   try{
     pipWindow=await documentPictureInPicture.requestWindow({width:460,height:300});
     const dark=document.documentElement.getAttribute('data-theme')==='dark';
-    pipWindow.document.head.innerHTML=`<meta charset="UTF-8"><style>
+    pipWindow.document.documentElement.setAttribute('data-theme',dark?'dark':'light');
+    pipWindow.document.head.innerHTML=`<meta charset="UTF-8"><link rel="stylesheet" href="${location.origin}/static/workspace.css"><style>
       *{margin:0;padding:0;box-sizing:border-box}
       html,body{height:100%}
-      body{position:relative;min-width:300px;padding:12px 14px;background:${dark?'rgba(25,25,25,.95)':'rgba(255,255,255,.96)'};backdrop-filter:blur(20px);color:${dark?'#e8e8e6':'#1a1a1a'};font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;display:flex;flex-direction:column;overflow:hidden}
-      .pip-ctrl{flex-shrink:0;display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid ${dark?'#333':'#e9e9e7'}}
-      .pip-btn{height:26px;padding:0 12px;border-radius:13px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s}
-      .pip-rec{background:${dark?'#e8e8e6':'#37352f'};color:${dark?'#191919':'#fff'}}
-      .pip-rec.on{background:#e03e3e;color:#fff}
-      .pip-pause{background:${dark?'#333':'#efeeec'};color:${dark?'#9b9a97':'#787774'}}
-      .pip-pause.on{background:#0f7b3e;color:#fff}
-      .pip-status{flex:1;font-size:11px;color:${dark?'#6b6b6b':'#9b9a97'};text-align:right}
+      body{position:relative;min-width:300px;padding:12px 14px;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;display:flex;flex-direction:column;overflow:hidden}
+      .pip-ctrl{flex-shrink:0;display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+      .pip-btn{height:30px;padding:0 12px;border-radius:8px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s}
+      .pip-rec{background:var(--accent);color:var(--bg)}
+      .pip-rec.on{background:var(--red);color:var(--bg)}
+      .pip-pause{background:var(--bg-soft);color:var(--text-soft)}
+      .pip-pause.on{background:var(--accent-soft);color:var(--accent)}
+      .pip-status{flex:1;font-size:11px;color:var(--text-soft);text-align:right}
       .pip-content{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
       .pip-content::-webkit-scrollbar{width:5px}
       .pip-content::-webkit-scrollbar-thumb{background:rgba(128,128,128,.4);border-radius:5px}
       .pip-line{padding:5px 0;border-bottom:1px solid rgba(128,128,128,.1)}
       .pip-line:last-child{border-bottom:none}
-      .pip-line .en{font-size:11px;opacity:.55;margin-bottom:2px}
-      .pip-line .zh{font-size:13px;font-weight:500}
+      .pip-line .en{font-size:14px;color:var(--text-soft);line-height:1.65;margin-bottom:4px}
+      .pip-line .zh{font-size:17px;font-weight:500;line-height:1.7}
       .pip-line .zh.pending{opacity:.45}
-      .pip-line.last .zh{font-size:19px;font-weight:650}
+      .pip-line.last .zh{font-size:20px;font-weight:500}
       .pip-empty{text-align:center;opacity:.4;font-size:15px;padding:24px 0}
       .pip-jump{position:absolute;right:12px;bottom:12px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(128,128,128,.28);color:inherit;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5}
       .pip-jump:hover{background:rgba(128,128,128,.45)}

@@ -5,7 +5,8 @@ import uuid
 from typing import Any
 
 
-def make_config(session_id: str, mode: str = "full", stop_timeout_ms: int = 17000) -> dict:
+def make_config(session_id: str, mode: str = "full", stop_timeout_ms: int = 17000,
+                asr: dict | None = None) -> dict:
     """Config message sent immediately after WebSocket accept."""
     return {
         "type": "config",
@@ -13,6 +14,7 @@ def make_config(session_id: str, mode: str = "full", stop_timeout_ms: int = 1700
         "session_id": session_id,
         "mode": mode,
         "stop_timeout_ms": stop_timeout_ms,
+        "asr": asr or {},
         "capabilities": {
             "asr": "paraformer-realtime-v2",
             "translation": "deepseek-chat",

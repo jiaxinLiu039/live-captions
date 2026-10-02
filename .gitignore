@@ -31,3 +31,7 @@ Thumbs.db
 # User data (recordings exports & hotword glossaries)
 downloads/
 hotwords/
+
+# Project-local course backgrounds and terminology
+course_profiles.json
+asr_vocabulary_cache.json
